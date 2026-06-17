@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Biozin-Royale-Backend.AccesoDatos/Biozin-Royale-Backend.AccesoDatos.csproj" />
+  <Project Path="Biozin-Royale-Backend.API/Biozin-Royale-Backend.API.csproj" />
+  <Project Path="Biozin-Royale-Backend.Dominio/Biozin-Royale-Backend.Dominio.csproj" />
+  <Project Path="Biozin-Royale-Backend.LogicaNegocio/Biozin-Royale-Backend.LogicaNegocio.csproj" />
+  <Project Path="Biozin-Royale-Backend.Utilidades/Biozin-Royale-Backend.Utilidades.csproj" />
+</Solution>

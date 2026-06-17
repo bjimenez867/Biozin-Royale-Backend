@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Biozin-Royale-Backend.AccesoDatos\Biozin-Royale-Backend.AccesoDatos.csproj" />
+    <ProjectReference Include="..\Biozin-Royale-Backend.Dominio\Biozin-Royale-Backend.Dominio.csproj" />
+    <ProjectReference Include="..\Biozin-Royale-Backend.Utilidades\Biozin-Royale-Backend.Utilidades.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="16.1.1" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Biozin_Royale_Backend.LogicaNegocio</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
