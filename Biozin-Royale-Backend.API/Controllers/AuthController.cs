@@ -7,7 +7,7 @@ public class AuthController
         /// <summary>
         /// Login unificado. Detecta el rol según el dominio del email:
         ///   @admin.biozin.com → Administrador
-        ///   @suppor.biozin.edu.cr → Administrador
+        ///   @support.biozin.com → soporte
         /// </summary>
         [HttpPost("Login")]
         public IActionResult Login([FromBody] TLoginRequest login)
