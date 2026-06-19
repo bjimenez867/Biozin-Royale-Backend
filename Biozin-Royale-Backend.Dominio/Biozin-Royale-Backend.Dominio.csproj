@@ -9,7 +9,11 @@
 
   <ItemGroup>
     <Folder Include="Entities\" />
-    <Folder Include="InterfacesLN\" />
+    <Folder Include="TypedEntities\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Biozin-Royale-Backend.Utilidades\Biozin-Royale-Backend.Utilidades.csproj" />
   </ItemGroup>
 
 </Project>
