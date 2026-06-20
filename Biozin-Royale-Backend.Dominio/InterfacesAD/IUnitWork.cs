@@ -7,4 +7,5 @@ public interface IUnitWork : IDisposable
     IRepositoryAD<Profile> Profiles { get; }
     int Completar();
     Task InsertarUsuarioAuthAsync(Guid id, string email);
+    Task<bool> ExisteUsuarioAuthAsync(string email);
 }

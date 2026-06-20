@@ -48,6 +48,15 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
+        // Puede haber una fila en auth.users sin Profile (ej. un login con Google que
+        // nunca llegó a sincronizarse). Insertar de nuevo violaría la restricción de
+        // correo único de Supabase Auth, así que lo detectamos antes y avisamos.
+        if (await _unitOfWork.ExisteUsuarioAuthAsync(email))
+        {
+            resultado.lpError("Correo en uso", "Ya existe una cuenta asociada a este correo. Intenta iniciar sesión, incluso con Google.");
+            return resultado;
+        }
+
         var username = GenerarUsernameUnico(datos.Nombre);
         var id = Guid.NewGuid();
         var ahora = DateTime.UtcNow;
