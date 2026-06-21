@@ -9,6 +9,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
             : base(options) { }
 
         public DbSet<Profile> Profiles => Set<Profile>();
+        public DbSet<UserStatistics> UserStatistics => Set<UserStatistics>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -32,6 +33,17 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.Password).HasColumnName("password");
                 entity.HasIndex(p => p.UserId).IsUnique();
                 entity.HasIndex(p => p.Username).IsUnique();
+            });
+
+            modelBuilder.Entity<UserStatistics>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("user_statistics");
+                entity.Property(s => s.UserId).HasColumnName("user_id");
+                entity.Property(s => s.PartidasJugadas).HasColumnName("partidas_jugadas");
+                entity.Property(s => s.PartidasGanadas).HasColumnName("partidas_ganadas");
+                entity.Property(s => s.ApostadoTotal).HasColumnName("apostado_total");
+                entity.Property(s => s.GananciasNetas).HasColumnName("ganancias_netas");
             });
         }
     }

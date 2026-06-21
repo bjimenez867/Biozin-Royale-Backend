@@ -10,11 +10,13 @@ public class UnitWorkEF : IUnitWork
     private readonly ApplicationDbContext _contexto;
 
     public IRepositoryAD<Profile> Profiles { get; }
+    public IRepositoryAD<UserStatistics> Statistics { get; }
 
     public UnitWorkEF(ApplicationDbContext contexto)
     {
         _contexto = contexto;
         Profiles = new RepositoryAD<Profile>(contexto);
+        Statistics = new RepositoryAD<UserStatistics>(contexto);
     }
 
     public int Completar()

@@ -180,6 +180,24 @@ public class AuthLN : IAuthLN
         return Task.FromResult(resultado);
     }
 
+    public Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId)
+    {
+        var resultado = new Response<TEstadisticas>();
+        var stats = _unitOfWork.Statistics.ObtenerEntidad(s => s.UserId == userId).ReturnValue;
+
+        // Sin filas en bets para este usuario (aún no jugó): se devuelven ceros, no error.
+        resultado.ReturnValue = stats is null
+            ? new TEstadisticas()
+            : new TEstadisticas
+            {
+                PartidasJugadas = stats.PartidasJugadas,
+                PartidasGanadas = stats.PartidasGanadas,
+                ApostadoTotal = stats.ApostadoTotal,
+                GananciasNetas = stats.GananciasNetas
+            };
+        return Task.FromResult(resultado);
+    }
+
     private string GenerarUsernameUnico(string nombreBase)
     {
         var sufijo = 0;

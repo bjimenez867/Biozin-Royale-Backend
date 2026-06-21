@@ -5,6 +5,7 @@ namespace Biozin_Royale_Backend.Dominio.InterfacesAD;
 public interface IUnitWork : IDisposable
 {
     IRepositoryAD<Profile> Profiles { get; }
+    IRepositoryAD<UserStatistics> Statistics { get; }
     int Completar();
     Task InsertarUsuarioAuthAsync(Guid id, string email);
     Task<bool> ExisteUsuarioAuthAsync(string email);
