@@ -82,7 +82,7 @@ public class AuthLN : IAuthLN
         _unitOfWork.Profiles.Insertar(perfil);
         _unitOfWork.Completar();
 
-        resultado.ReturnValue = MapearPerfil(perfil, GenerarToken(perfil));
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
         return resultado;
     }
 
@@ -98,7 +98,7 @@ public class AuthLN : IAuthLN
             return Task.FromResult(resultado);
         }
 
-        resultado.ReturnValue = MapearPerfil(perfil, GenerarToken(perfil));
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
         return Task.FromResult(resultado);
     }
 
@@ -128,74 +128,8 @@ public class AuthLN : IAuthLN
             _unitOfWork.Completar();
         }
 
-        resultado.ReturnValue = await Task.FromResult(MapearPerfil(perfil, token: null));
+        resultado.ReturnValue = await Task.FromResult(PerfilMapper.MapearPerfil(perfil, token: null));
         return resultado;
-    }
-
-    public Task<Response<TPerfilResultado>> ObtenerPerfilAsync(Guid userId)
-    {
-        var resultado = new Response<TPerfilResultado>();
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
-        if (perfil is null)
-        {
-            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
-        }
-
-        resultado.ReturnValue = MapearPerfil(perfil, token: null);
-        return Task.FromResult(resultado);
-    }
-
-    public Task<Response<TPerfilResultado>> ActualizarPerfilAsync(Guid userId, TActualizarPerfil datos)
-    {
-        var resultado = new Response<TPerfilResultado>();
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
-        if (perfil is null)
-        {
-            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
-        }
-
-        if (!string.IsNullOrWhiteSpace(datos.Username) && datos.Username != perfil.Username)
-        {
-            var enUso = _unitOfWork.Profiles.ObtenerEntidad(p => p.Username == datos.Username).ReturnValue;
-            if (enUso is not null)
-            {
-                resultado.lpError("Usuario en uso", "Ese nombre de usuario ya está ocupado.");
-                return Task.FromResult(resultado);
-            }
-            perfil.Username = datos.Username;
-        }
-
-        if (datos.DisplayName is not null) perfil.DisplayName = datos.DisplayName;
-        if (datos.Phone is not null) perfil.Phone = datos.Phone;
-        if (datos.Country is not null) perfil.Country = datos.Country;
-        if (datos.Birthdate is not null) perfil.Birthdate = datos.Birthdate;
-        perfil.UpdatedAt = DateTime.UtcNow;
-
-        _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
-
-        resultado.ReturnValue = MapearPerfil(perfil, token: null);
-        return Task.FromResult(resultado);
-    }
-
-    public Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId)
-    {
-        var resultado = new Response<TEstadisticas>();
-        var stats = _unitOfWork.Statistics.ObtenerEntidad(s => s.UserId == userId).ReturnValue;
-
-        // Sin filas en bets para este usuario (aún no jugó): se devuelven ceros, no error.
-        resultado.ReturnValue = stats is null
-            ? new TEstadisticas()
-            : new TEstadisticas
-            {
-                PartidasJugadas = stats.PartidasJugadas,
-                PartidasGanadas = stats.PartidasGanadas,
-                ApostadoTotal = stats.ApostadoTotal,
-                GananciasNetas = stats.GananciasNetas
-            };
-        return Task.FromResult(resultado);
     }
 
     private string GenerarUsernameUnico(string nombreBase)
@@ -231,27 +165,5 @@ public class AuthLN : IAuthLN
             signingCredentials: credenciales);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
-    }
-
-    private static TPerfilResultado MapearPerfil(Profile perfil, string? token)
-    {
-        var camposPendientes = new List<string>();
-        if (string.IsNullOrWhiteSpace(perfil.Phone)) camposPendientes.Add("phone");
-        if (string.IsNullOrWhiteSpace(perfil.Country)) camposPendientes.Add("country");
-        if (perfil.Birthdate is null) camposPendientes.Add("birthdate");
-
-        return new TPerfilResultado
-        {
-            Id = perfil.UserId,
-            Username = perfil.Username,
-            DisplayName = perfil.DisplayName,
-            Email = perfil.Email,
-            Phone = perfil.Phone,
-            Country = perfil.Country,
-            Birthdate = perfil.Birthdate,
-            Status = perfil.Status,
-            Token = token,
-            CamposPendientes = camposPendientes
-        };
     }
 }

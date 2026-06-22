@@ -10,11 +10,11 @@ namespace Biozin_Royale_Backend.API.Controllers;
 [Route("api/profile")]
 public class ProfileController : ControllerBase
 {
-    private readonly IAuthLN _authLN;
+    private readonly IProfileLN _profileLN;
 
-    public ProfileController(IAuthLN authLN)
+    public ProfileController(IProfileLN profileLN)
     {
-        _authLN = authLN;
+        _profileLN = profileLN;
     }
 
     [HttpGet]
@@ -22,7 +22,7 @@ public class ProfileController : ControllerBase
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
 
-        var resultado = await _authLN.ObtenerPerfilAsync(userId);
+        var resultado = await _profileLN.ObtenerPerfilAsync(userId);
         return resultado.blnError ? NotFound(resultado) : Ok(resultado);
     }
 
@@ -33,7 +33,7 @@ public class ProfileController : ControllerBase
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
 
-        var resultado = await _authLN.ActualizarPerfilAsync(userId, datos);
+        var resultado = await _profileLN.ActualizarPerfilAsync(userId, datos);
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
@@ -42,7 +42,7 @@ public class ProfileController : ControllerBase
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
 
-        var resultado = await _authLN.ObtenerEstadisticasAsync(userId);
+        var resultado = await _profileLN.ObtenerEstadisticasAsync(userId);
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
