@@ -18,6 +18,15 @@ builder.Services.AddScoped<IUnitWork, UnitWorkEF>();
 builder.Services.AddScoped<IAuthLN, AuthLN>();
 builder.Services.AddScoped<IProfileLN, ProfileLN>();
 builder.Services.AddScoped<IGamesHistoryLN, GamesHistoryLN>();
+builder.Services.AddScoped<IWalletLN, WalletLN>();
+builder.Services.AddScoped<IBetsLN, BetsLN>();
+
+builder.Services.AddHttpClient("OddsApi", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["OddsApi:BaseUrl"]!);
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddSingleton<ISportsLN, SportsLN>();
 
 var supabaseUrl = builder.Configuration["Supabase:Url"]!;
 var supabaseIssuer = $"{supabaseUrl}/auth/v1";
@@ -67,9 +76,9 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
-
 app.UseCors("Frontend");
+
+app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
