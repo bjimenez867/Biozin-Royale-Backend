@@ -10,6 +10,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
 
         public DbSet<Profile> Profiles => Set<Profile>();
         public DbSet<UserStatistics> UserStatistics => Set<UserStatistics>();
+        public DbSet<GamesHistory> GamesHistory => Set<GamesHistory>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -44,6 +45,22 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(s => s.PartidasGanadas).HasColumnName("partidas_ganadas");
                 entity.Property(s => s.ApostadoTotal).HasColumnName("apostado_total");
                 entity.Property(s => s.GananciasNetas).HasColumnName("ganancias_netas");
+            });
+
+            modelBuilder.Entity<GamesHistory>(entity =>
+            {
+                entity.ToTable("bets");
+                entity.HasKey(b => b.Id);
+                entity.Property(b => b.Id).HasColumnName("id");
+                entity.Property(b => b.UserId).HasColumnName("user_id");
+                entity.Property(b => b.GameType).HasColumnName("game_type");
+                entity.Property(b => b.RoundId).HasColumnName("round_id");
+                entity.Property(b => b.Amount).HasColumnName("amount");
+                entity.Property(b => b.Payout).HasColumnName("payout");
+                entity.Property(b => b.Profit).HasColumnName("profit");
+                entity.Property(b => b.Result).HasColumnName("result");
+                entity.Property(b => b.Status).HasColumnName("status");
+                entity.Property(b => b.CreatedAt).HasColumnName("created_at");
             });
         }
     }

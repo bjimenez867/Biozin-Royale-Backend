@@ -11,12 +11,14 @@ public class UnitWorkEF : IUnitWork
 
     public IRepositoryAD<Profile> Profiles { get; }
     public IRepositoryAD<UserStatistics> Statistics { get; }
+    public IRepositoryAD<GamesHistory> GamesHistory { get; }
 
     public UnitWorkEF(ApplicationDbContext contexto)
     {
         _contexto = contexto;
         Profiles = new RepositoryAD<Profile>(contexto);
         Statistics = new RepositoryAD<UserStatistics>(contexto);
+        GamesHistory = new RepositoryAD<GamesHistory>(contexto);
     }
 
     public int Completar()

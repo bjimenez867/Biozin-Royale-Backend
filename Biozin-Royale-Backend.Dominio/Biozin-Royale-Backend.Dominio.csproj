@@ -8,12 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Entities\" />
-    <Folder Include="TypedEntities\" />
+    <ProjectReference Include="..\Biozin-Royale-Backend.Utilidades\Biozin-Royale-Backend.Utilidades.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Biozin-Royale-Backend.Utilidades\Biozin-Royale-Backend.Utilidades.csproj" />
+    <Folder Include="DTO\" />
   </ItemGroup>
 
 </Project>
