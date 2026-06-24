@@ -17,6 +17,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IUnitWork, UnitWorkEF>();
 builder.Services.AddScoped<IAuthLN, AuthLN>();
 builder.Services.AddScoped<IProfileLN, ProfileLN>();
+builder.Services.AddScoped<IGamesHistoryLN, GamesHistoryLN>();
 
 var supabaseUrl = builder.Configuration["Supabase:Url"]!;
 var supabaseIssuer = $"{supabaseUrl}/auth/v1";
