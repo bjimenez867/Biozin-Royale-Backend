@@ -32,6 +32,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.Country).HasColumnName("country");
                 entity.Property(p => p.Birthdate).HasColumnName("birthdate");
                 entity.Property(p => p.Password).HasColumnName("password");
+                entity.Property(p => p.Balance).HasColumnName("balance").HasPrecision(18, 2).HasDefaultValue(1250.00m);
                 entity.HasIndex(p => p.UserId).IsUnique();
                 entity.HasIndex(p => p.Username).IsUnique();
             });
@@ -57,7 +58,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(b => b.RoundId).HasColumnName("round_id");
                 entity.Property(b => b.Amount).HasColumnName("amount");
                 entity.Property(b => b.Payout).HasColumnName("payout");
-                entity.Property(b => b.Profit).HasColumnName("profit");
+                entity.Property(b => b.Profit).HasColumnName("profit").ValueGeneratedOnAddOrUpdate();
                 entity.Property(b => b.Result).HasColumnName("result");
                 entity.Property(b => b.Status).HasColumnName("status");
                 entity.Property(b => b.CreatedAt).HasColumnName("created_at");

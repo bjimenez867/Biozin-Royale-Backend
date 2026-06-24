@@ -76,7 +76,8 @@ public class AuthLN : IAuthLN
             Phone = datos.Phone,
             Email = email,
             Country = PhoneCountryLookup.GetCountry(datos.Phone),
-            Password = BCrypt.Net.BCrypt.HashPassword(datos.Password)
+            Password = BCrypt.Net.BCrypt.HashPassword(datos.Password),
+            Balance = 1250.00m
         };
 
         _unitOfWork.Profiles.Insertar(perfil);
@@ -121,7 +122,8 @@ public class AuthLN : IAuthLN
                 CreatedAt = ahora,
                 UpdatedAt = ahora,
                 Email = email.Trim().ToLowerInvariant(),
-                Password = null
+                Password = null,
+                Balance = 1250.00m
             };
 
             _unitOfWork.Profiles.Insertar(perfil);
