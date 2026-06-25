@@ -44,6 +44,17 @@ public class CredentialsGenerator
             return $"{local}{AdminDomain}";
         }
 
+
+        /// Determina el rol de la cuenta a partir del dominio del correo: "admin",
+        /// "soporte" o "user" para cualquier otro dominio.
+        public static string DetectRole(string email)
+        {
+            var normalizado = email.Trim().ToLowerInvariant();
+            if (normalizado.EndsWith(AdminDomain)) return "admin";
+            if (normalizado.EndsWith(SupportDomain)) return "soporte";
+            return "user";
+        }
+
         
         
         

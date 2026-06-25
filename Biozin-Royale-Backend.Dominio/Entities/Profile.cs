@@ -17,4 +17,5 @@ public class Profile
     public DateOnly? Birthdate { get; set; }
     public string? Password { get; set; }
     public decimal Balance { get; set; } = 0m;
+    public string Role { get; set; } = "user";
 }

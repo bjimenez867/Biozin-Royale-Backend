@@ -45,6 +45,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidAudience = "authenticated",
             ValidateLifetime = true,
+            RoleClaimType = "role",
             IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
                 securityToken is Microsoft.IdentityModel.JsonWebTokens.JsonWebToken jwt && jwt.Issuer == supabaseIssuer
                     ? supabaseJwks.GetSigningKeys()

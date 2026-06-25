@@ -32,6 +32,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.Country).HasColumnName("country");
                 entity.Property(p => p.Birthdate).HasColumnName("birthdate");
                 entity.Property(p => p.Password).HasColumnName("password");
+                entity.Property(p => p.Role).HasColumnName("role");
                 entity.Property(p => p.Balance).HasColumnName("balance").HasPrecision(18, 2).HasDefaultValue(1250.00m);
                 entity.HasIndex(p => p.UserId).IsUnique();
                 entity.HasIndex(p => p.Username).IsUnique();

@@ -34,6 +34,15 @@ public class BetsLN : IBetsLN
             return Task.FromResult(resultado);
         }
 
+        // El frontend ya bloquea esto con un guard, pero el endpoint no debe confiar
+        // solo en eso: un invitado no debe poder apostar dinero real aunque le pegue
+        // directo a la API.
+        if (profile.IsGuest)
+        {
+            resultado.lpError("Cuenta de invitado", "Crea una cuenta para poder apostar.");
+            return Task.FromResult(resultado);
+        }
+
         if (profile.Balance < request.Amount)
         {
             resultado.lpError("Fondos insuficientes", "No tienes saldo suficiente para realizar esta apuesta.");
