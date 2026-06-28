@@ -77,10 +77,19 @@ public class AuthLN : IAuthLN
             Email = email,
             Country = PhoneCountryLookup.GetCountry(datos.Phone),
             Password = BCrypt.Net.BCrypt.HashPassword(datos.Password),
-            Balance = 1250.00m
+        };
+
+        var wallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            UserId = id,
+            Balance = 1250.00m,
+            CreatedAt = ahora,
+            UpdatedAt = ahora,
         };
 
         _unitOfWork.Profiles.Insertar(perfil);
+        _unitOfWork.Wallets.Insertar(wallet);
         _unitOfWork.Completar();
 
         resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
@@ -123,10 +132,19 @@ public class AuthLN : IAuthLN
                 UpdatedAt = ahora,
                 Email = email.Trim().ToLowerInvariant(),
                 Password = null,
-                Balance = 1250.00m
+            };
+
+            var wallet = new Wallet
+            {
+                Id = Guid.NewGuid(),
+                UserId = supabaseUserId,
+                Balance = 1250.00m,
+                CreatedAt = ahora,
+                UpdatedAt = ahora,
             };
 
             _unitOfWork.Profiles.Insertar(perfil);
+            _unitOfWork.Wallets.Insertar(wallet);
             _unitOfWork.Completar();
         }
 

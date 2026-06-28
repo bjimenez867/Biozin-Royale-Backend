@@ -25,24 +25,25 @@ public class BetsLN : IBetsLN
             return Task.FromResult(resultado);
         }
 
-        var profileResult = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId);
-        var profile = profileResult.ReturnValue;
+        var walletResult = _unitOfWork.Wallets.ObtenerEntidad(w => w.UserId == userId);
+        var wallet = walletResult.ReturnValue;
 
-        if (profile is null)
+        if (wallet is null)
         {
-            resultado.lpError("Error", "Perfil no encontrado.");
+            resultado.lpError("Error", "Billetera no encontrada.");
             return Task.FromResult(resultado);
         }
 
-        if (profile.Balance < request.Amount)
+        if (wallet.Balance < request.Amount)
         {
             resultado.lpError("Fondos insuficientes", "No tienes saldo suficiente para realizar esta apuesta.");
             return Task.FromResult(resultado);
         }
 
         var potentialWin = Math.Round(request.Amount * request.TotalOdds, 2);
-        profile.Balance = Math.Round(profile.Balance - request.Amount, 2);
-        _unitOfWork.Profiles.Modificar(profile);
+        wallet.Balance = Math.Round(wallet.Balance - request.Amount, 2);
+        wallet.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.Wallets.Modificar(wallet);
 
         var bet = new GamesHistory
         {
@@ -61,7 +62,7 @@ public class BetsLN : IBetsLN
         resultado.ReturnValue = new TBetResult
         {
             BetId = bet.Id,
-            NewBalance = profile.Balance,
+            NewBalance = wallet.Balance,
             PotentialWin = potentialWin,
         };
 

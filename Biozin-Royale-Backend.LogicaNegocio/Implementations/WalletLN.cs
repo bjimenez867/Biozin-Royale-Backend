@@ -17,14 +17,14 @@ public class WalletLN : IWalletLN
     {
         var resultado = new Response<decimal>();
 
-        var profileResult = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId);
-        if (profileResult.ReturnValue is null)
+        var walletResult = _unitOfWork.Wallets.ObtenerEntidad(w => w.UserId == userId);
+        if (walletResult.ReturnValue is null)
         {
-            resultado.lpError("Wallet", "Perfil no encontrado.");
+            resultado.lpError("Wallet", "Billetera no encontrada.");
             return Task.FromResult(resultado);
         }
 
-        resultado.ReturnValue = profileResult.ReturnValue.Balance;
+        resultado.ReturnValue = walletResult.ReturnValue.Balance;
         return Task.FromResult(resultado);
     }
 }

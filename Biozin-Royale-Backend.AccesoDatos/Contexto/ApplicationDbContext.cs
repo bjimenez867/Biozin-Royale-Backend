@@ -9,6 +9,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
             : base(options) { }
 
         public DbSet<Profile> Profiles => Set<Profile>();
+        public DbSet<Wallet> Wallets => Set<Wallet>();
         public DbSet<UserStatistics> UserStatistics => Set<UserStatistics>();
         public DbSet<GamesHistory> GamesHistory => Set<GamesHistory>();
 
@@ -32,9 +33,20 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.Country).HasColumnName("country");
                 entity.Property(p => p.Birthdate).HasColumnName("birthdate");
                 entity.Property(p => p.Password).HasColumnName("password");
-                entity.Property(p => p.Balance).HasColumnName("balance").HasPrecision(18, 2).HasDefaultValue(1250.00m);
                 entity.HasIndex(p => p.UserId).IsUnique();
                 entity.HasIndex(p => p.Username).IsUnique();
+            });
+
+            modelBuilder.Entity<Wallet>(entity =>
+            {
+                entity.ToTable("wallets");
+                entity.HasKey(w => w.Id);
+                entity.Property(w => w.Id).HasColumnName("id");
+                entity.Property(w => w.UserId).HasColumnName("user_id");
+                entity.Property(w => w.Balance).HasColumnName("balance").HasPrecision(18, 2);
+                entity.Property(w => w.CreatedAt).HasColumnName("created_at");
+                entity.Property(w => w.UpdatedAt).HasColumnName("updated_at");
+                entity.HasIndex(w => w.UserId).IsUnique();
             });
 
             modelBuilder.Entity<UserStatistics>(entity =>

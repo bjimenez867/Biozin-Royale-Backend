@@ -10,6 +10,7 @@ public class UnitWorkEF : IUnitWork
     private readonly ApplicationDbContext _contexto;
 
     public IRepositoryAD<Profile> Profiles { get; }
+    public IRepositoryAD<Wallet> Wallets { get; }
     public IRepositoryAD<UserStatistics> Statistics { get; }
     public IRepositoryAD<GamesHistory> GamesHistory { get; }
 
@@ -17,6 +18,7 @@ public class UnitWorkEF : IUnitWork
     {
         _contexto = contexto;
         Profiles = new RepositoryAD<Profile>(contexto);
+        Wallets = new RepositoryAD<Wallet>(contexto);
         Statistics = new RepositoryAD<UserStatistics>(contexto);
         GamesHistory = new RepositoryAD<GamesHistory>(contexto);
     }

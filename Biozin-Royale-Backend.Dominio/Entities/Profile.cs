@@ -16,5 +16,4 @@ public class Profile
     public string? Country { get; set; }
     public DateOnly? Birthdate { get; set; }
     public string? Password { get; set; }
-    public decimal Balance { get; set; } = 0m;
 }

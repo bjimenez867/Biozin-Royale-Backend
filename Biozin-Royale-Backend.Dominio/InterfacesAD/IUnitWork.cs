@@ -5,6 +5,7 @@ namespace Biozin_Royale_Backend.Dominio.InterfacesAD;
 public interface IUnitWork : IDisposable
 {
     IRepositoryAD<Profile> Profiles { get; }
+    IRepositoryAD<Wallet> Wallets { get; }
     IRepositoryAD<UserStatistics> Statistics { get; }
     IRepositoryAD<GamesHistory> GamesHistory { get; }
     int Completar();
