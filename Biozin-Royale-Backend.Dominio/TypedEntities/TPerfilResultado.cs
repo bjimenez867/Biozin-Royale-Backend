@@ -10,6 +10,8 @@ public class TPerfilResultado
     public string? Country { get; set; }
     public DateOnly? Birthdate { get; set; }
     public string Status { get; set; } = string.Empty;
+    public string Role { get; set; } = "user";
+    public bool IsGuest { get; set; }
     public string? Token { get; set; }
     public List<string> CamposPendientes { get; set; } = new();
 }

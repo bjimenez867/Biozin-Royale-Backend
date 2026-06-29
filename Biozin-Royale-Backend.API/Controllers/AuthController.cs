@@ -40,13 +40,34 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Sync()
     {
         var sub = User.FindFirst("sub")?.Value;
+        if (sub is null || !Guid.TryParse(sub, out var supabaseUserId))
+            return Unauthorized();
+
+        // Las sesiones anónimas de Supabase (invitado) traen el claim "is_anonymous"
+        // y no traen "email" — a diferencia del login social normal, donde sí es obligatorio.
+        var esAnonimo = User.FindFirst("is_anonymous")?.Value == "true";
         var email = User.FindFirst("email")?.Value;
-        if (sub is null || email is null || !Guid.TryParse(sub, out var supabaseUserId))
+        if (!esAnonimo && email is null)
             return Unauthorized();
 
         var nombreCompleto = ExtraerNombreCompleto(User.FindFirst("user_metadata")?.Value);
 
-        var resultado = await _authLN.SincronizarOAuthAsync(supabaseUserId, email, nombreCompleto);
+        var resultado = await _authLN.SincronizarOAuthAsync(supabaseUserId, email, nombreCompleto, esAnonimo);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    /// Llamado cuando alguien que entró como invitado decide crear cuenta: convierte
+    /// el mismo Profile (IsGuest=true) en una cuenta manual normal, en vez de crear
+    /// una fila nueva y abandonar el saldo/progreso del invitado.
+    [Authorize]
+    [HttpPost("claim-guest")]
+    public async Task<IActionResult> ClaimGuest([FromBody] TRegistroManual datos)
+    {
+        var sub = User.FindFirst("sub")?.Value;
+        if (sub is null || !Guid.TryParse(sub, out var userId))
+            return Unauthorized();
+
+        var resultado = await _authLN.ReclamarInvitadoAsync(userId, datos);
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
