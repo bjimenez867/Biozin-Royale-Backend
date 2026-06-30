@@ -13,6 +13,8 @@ public class UnitWorkEF : IUnitWork
     public IRepositoryAD<Wallet> Wallets { get; }
     public IRepositoryAD<UserStatistics> Statistics { get; }
     public IRepositoryAD<GamesHistory> GamesHistory { get; }
+    public IRepositoryAD<Promotion> Promotions { get; }
+    public IRepositoryAD<PromotionClaim> PromotionClaims { get; }
 
     public UnitWorkEF(ApplicationDbContext contexto)
     {
@@ -21,6 +23,8 @@ public class UnitWorkEF : IUnitWork
         Wallets = new RepositoryAD<Wallet>(contexto);
         Statistics = new RepositoryAD<UserStatistics>(contexto);
         GamesHistory = new RepositoryAD<GamesHistory>(contexto);
+        Promotions = new RepositoryAD<Promotion>(contexto);
+        PromotionClaims = new RepositoryAD<PromotionClaim>(contexto);
     }
 
     public int Completar()

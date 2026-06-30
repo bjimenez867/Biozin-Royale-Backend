@@ -12,6 +12,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<Wallet> Wallets => Set<Wallet>();
         public DbSet<UserStatistics> UserStatistics => Set<UserStatistics>();
         public DbSet<GamesHistory> GamesHistory => Set<GamesHistory>();
+        public DbSet<Promotion> Promotions => Set<Promotion>();
+        public DbSet<PromotionClaim> PromotionClaims => Set<PromotionClaim>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -75,6 +77,33 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(b => b.Result).HasColumnName("result");
                 entity.Property(b => b.Status).HasColumnName("status");
                 entity.Property(b => b.CreatedAt).HasColumnName("created_at");
+            });
+
+            modelBuilder.Entity<Promotion>(entity =>
+            {
+                entity.ToTable("promotions");
+                entity.HasKey(p => p.Id);
+                entity.Property(p => p.Id).HasColumnName("id");
+                entity.Property(p => p.Title).HasColumnName("title");
+                entity.Property(p => p.Description).HasColumnName("description");
+                entity.Property(p => p.PromotionType).HasColumnName("promotion_type");
+                entity.Property(p => p.IsActive).HasColumnName("is_active");
+                entity.Property(p => p.Amount).HasColumnName("amount").HasPrecision(18, 2);
+                entity.Property(p => p.StartsAt).HasColumnName("starts_at");
+                entity.Property(p => p.EndsAt).HasColumnName("ends_at");
+                entity.Property(p => p.CreatedAt).HasColumnName("created_at");
+            });
+
+            modelBuilder.Entity<PromotionClaim>(entity =>
+            {
+                entity.ToTable("promotion_claims");
+                entity.HasKey(c => c.Id);
+                entity.Property(c => c.Id).HasColumnName("id");
+                entity.Property(c => c.PromotionId).HasColumnName("promotion_id");
+                entity.Property(c => c.UserId).HasColumnName("user_id");
+                entity.Property(c => c.Status).HasColumnName("status");
+                entity.Property(c => c.ClaimedAt).HasColumnName("claimed_at");
+                entity.Property(c => c.CompletedAt).HasColumnName("completed_at");
             });
         }
     }

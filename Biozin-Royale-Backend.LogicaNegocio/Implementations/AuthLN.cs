@@ -94,7 +94,7 @@ public class AuthLN : IAuthLN
         {
             Id = Guid.NewGuid(),
             UserId = id,
-            Balance = 1250.00m,
+            Balance = 0.00m,
             CreatedAt = ahora,
             UpdatedAt = ahora,
         };
@@ -159,7 +159,7 @@ public class AuthLN : IAuthLN
             {
                 Id = Guid.NewGuid(),
                 UserId = supabaseUserId,
-                Balance = 1250.00m,
+                Balance = 0.00m,
                 CreatedAt = ahora,
                 UpdatedAt = ahora,
             };

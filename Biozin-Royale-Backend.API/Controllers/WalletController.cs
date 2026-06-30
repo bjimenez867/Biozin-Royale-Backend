@@ -25,6 +25,15 @@ public class WalletController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [HttpPut("balance")]
+    public async Task<IActionResult> UpdateBalance([FromBody] decimal newBalance)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var resultado = await _walletLn.UpdateBalanceAsync(userId, newBalance);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var sub = User.FindFirst("sub")?.Value;

@@ -20,6 +20,7 @@ builder.Services.AddScoped<IProfileLN, ProfileLN>();
 builder.Services.AddScoped<IGamesHistoryLN, GamesHistoryLN>();
 builder.Services.AddScoped<IWalletLN, WalletLN>();
 builder.Services.AddScoped<IBetsLN, BetsLN>();
+builder.Services.AddScoped<IPromotionLN, PromotionLN>();
 
 builder.Services.AddHttpClient("OddsApi", client =>
 {
