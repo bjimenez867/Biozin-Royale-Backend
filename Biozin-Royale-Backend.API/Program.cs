@@ -15,6 +15,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection")));
 
 builder.Services.AddScoped<IUnitWork, UnitWorkEF>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IStaffLN, StaffLN>();
 builder.Services.AddScoped<IAuthLN, AuthLN>();
 builder.Services.AddScoped<IProfileLN, ProfileLN>();
 builder.Services.AddScoped<IGamesHistoryLN, GamesHistoryLN>();

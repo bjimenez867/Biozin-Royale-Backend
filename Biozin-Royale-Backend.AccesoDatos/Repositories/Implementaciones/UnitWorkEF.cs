@@ -12,6 +12,7 @@ public class UnitWorkEF : IUnitWork
     public IRepositoryAD<Profile> Profiles { get; }
     public IRepositoryAD<UserStatistics> Statistics { get; }
     public IRepositoryAD<GamesHistory> GamesHistory { get; }
+    public IRepositoryAD<StaffMember> StaffMembers { get; }
 
     public UnitWorkEF(ApplicationDbContext contexto)
     {
@@ -19,6 +20,7 @@ public class UnitWorkEF : IUnitWork
         Profiles = new RepositoryAD<Profile>(contexto);
         Statistics = new RepositoryAD<UserStatistics>(contexto);
         GamesHistory = new RepositoryAD<GamesHistory>(contexto);
+        StaffMembers = new RepositoryAD<StaffMember>(contexto);
     }
 
     public int Completar()

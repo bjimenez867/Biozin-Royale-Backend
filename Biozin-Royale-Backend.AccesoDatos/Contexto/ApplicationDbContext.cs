@@ -11,6 +11,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<Profile> Profiles => Set<Profile>();
         public DbSet<UserStatistics> UserStatistics => Set<UserStatistics>();
         public DbSet<GamesHistory> GamesHistory => Set<GamesHistory>();
+        public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -63,6 +64,25 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(b => b.Result).HasColumnName("result");
                 entity.Property(b => b.Status).HasColumnName("status");
                 entity.Property(b => b.CreatedAt).HasColumnName("created_at");
+            });
+
+            modelBuilder.Entity<StaffMember>(entity =>
+            {
+                entity.ToTable("staff_members");
+                entity.HasKey(s => s.Id);
+                entity.Property(s => s.Id).HasColumnName("id");
+                entity.Property(s => s.Username).HasColumnName("username");
+                entity.Property(s => s.DisplayName).HasColumnName("display_name");
+                entity.Property(s => s.Email).HasColumnName("email");
+                entity.Property(s => s.Phone).HasColumnName("phone");
+                entity.Property(s => s.PasswordHash).HasColumnName("password_hash");
+                entity.Property(s => s.Role).HasColumnName("role");
+                entity.Property(s => s.Status).HasColumnName("status");
+                entity.Property(s => s.CreatedBy).HasColumnName("created_by");
+                entity.Property(s => s.CreatedAt).HasColumnName("created_at");
+                entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
+                entity.HasIndex(s => s.Email).IsUnique();
+                entity.HasIndex(s => s.Username).IsUnique();
             });
         }
     }

@@ -1,8 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
 using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
@@ -17,11 +13,13 @@ public class AuthLN : IAuthLN
 
     private readonly IUnitWork _unitOfWork;
     private readonly IConfiguration _configuration;
+    private readonly IStaffLN _staffLN;
 
-    public AuthLN(IUnitWork unitOfWork, IConfiguration configuration)
+    public AuthLN(IUnitWork unitOfWork, IConfiguration configuration, IStaffLN staffLN)
     {
         _unitOfWork = unitOfWork;
         _configuration = configuration;
+        _staffLN = staffLN;
     }
 
     public async Task<Response<TPerfilResultado>> RegistrarManualAsync(TRegistroManual datos)
@@ -98,20 +96,28 @@ public class AuthLN : IAuthLN
         return resultado;
     }
 
-    public Task<Response<TPerfilResultado>> LoginManualAsync(string email, string password)
+    public async Task<Response<TPerfilResultado>> LoginManualAsync(string email, string password)
     {
         var resultado = new Response<TPerfilResultado>();
         var emailNormalizado = email.Trim().ToLowerInvariant();
+
+        // El dominio del correo enruta el login a la tabla de staff (admin/soporte) en
+        // vez de profiles: el rol de staff nunca se infiere del dominio, solo lo define
+        // un admin al crear el miembro; el dominio aquí solo decide a qué tabla mirar.
+        if (CredentialsGenerator.DetectRole(emailNormalizado) != "user")
+        {
+            return await _staffLN.LoginAsync(emailNormalizado, password);
+        }
 
         var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNormalizado).ReturnValue;
         if (perfil is null || perfil.Password is null || !BCrypt.Net.BCrypt.Verify(password, perfil.Password))
         {
             resultado.lpError("Credenciales inválidas", "El correo o la contraseña son incorrectos.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     public async Task<Response<TPerfilResultado>> SincronizarOAuthAsync(Guid supabaseUserId, string? email, string? nombreCompleto, bool esAnonimo)
@@ -142,9 +148,9 @@ public class AuthLN : IAuthLN
                 Email = emailNormalizado,
                 Password = null,
                 Balance = 1250.00m,
-                // El login social ya prueba que el usuario es dueño del correo (pasó por
-                // el proveedor real), así que aquí sí se puede confiar en el dominio.
-                Role = esAnonimo ? "user" : CredentialsGenerator.DetectRole(emailNormalizado)
+                // El staff nunca entra por Google (solo correo/contraseña, ver
+                // LoginManualAsync), así que un perfil creado por OAuth siempre es jugador.
+                Role = "user"
             };
 
             _unitOfWork.Profiles.Insertar(perfil);
@@ -232,24 +238,6 @@ public class AuthLN : IAuthLN
 
     private string GenerarToken(Profile perfil)
     {
-        var llave = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:LocalSigningKey"]!));
-        var credenciales = new SigningCredentials(llave, SecurityAlgorithms.HmacSha256);
-
-        var claims = new[]
-        {
-            new Claim(JwtRegisteredClaimNames.Sub, perfil.UserId.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, perfil.Email),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim("role", perfil.Role)
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: _configuration["Jwt:LocalIssuer"],
-            audience: "authenticated",
-            claims: claims,
-            expires: DateTime.UtcNow.AddDays(7),
-            signingCredentials: credenciales);
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return JwtTokenFactory.GenerarToken(_configuration, perfil.UserId, perfil.Email, perfil.Role);
     }
 }
