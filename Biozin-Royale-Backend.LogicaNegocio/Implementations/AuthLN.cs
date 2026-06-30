@@ -156,23 +156,16 @@ public class AuthLN : IAuthLN
                 UpdatedAt = ahora,
                 Email = emailNormalizado,
                 Password = null,
-<<<<<<< HEAD
                 // El login social ya prueba que el usuario es dueño del correo (pasó por
                 // el proveedor real), así que aquí sí se puede confiar en el dominio.
                 Role = esAnonimo ? "user" : CredentialsGenerator.DetectRole(emailNormalizado)
-=======
-                Balance = 1250.00m,
-                // El staff nunca entra por Google (solo correo/contraseña, ver
-                // LoginManualAsync), así que un perfil creado por OAuth siempre es jugador.
-                Role = "user"
->>>>>>> origin/develop
             };
 
             var wallet = new Wallet
             {
                 Id = Guid.NewGuid(),
                 UserId = supabaseUserId,
-                Balance = 0.00m,
+                Balance = 1250.00m,
                 CreatedAt = ahora,
                 UpdatedAt = ahora,
             };
