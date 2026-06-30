@@ -59,7 +59,6 @@ public class CredentialsGenerator
         
         
         
-        
         /// Genera la base del email a partir del nombreCompleto con formato "Nombre PrimerApellido SegundoApellido".
         public static string GenerateBaseEmailWithFullName(string fullName)
         {
@@ -80,16 +79,7 @@ public class CredentialsGenerator
             return suffix > 0 ? $"{baseUsername}{suffix}" : baseUsername;
         }
 
-
-
-
-        /// Genera un carnet con formato AÑOxxxxx (ej: 202600123).
-        public static long GenerateCarnet(int anio)
-        {
-            var rng = new Random();
-            return (long)anio * 100000 + rng.Next(1, 99999);
-        }
-
+    
         
         
         

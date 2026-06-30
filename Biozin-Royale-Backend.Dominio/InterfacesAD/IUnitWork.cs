@@ -8,8 +8,12 @@ public interface IUnitWork : IDisposable
     IRepositoryAD<Wallet> Wallets { get; }
     IRepositoryAD<UserStatistics> Statistics { get; }
     IRepositoryAD<GamesHistory> GamesHistory { get; }
+<<<<<<< HEAD
     IRepositoryAD<Promotion> Promotions { get; }
     IRepositoryAD<PromotionClaim> PromotionClaims { get; }
+=======
+    IRepositoryAD<StaffMember> StaffMembers { get; }
+>>>>>>> origin/develop
     int Completar();
     Task InsertarUsuarioAuthAsync(Guid id, string email);
     Task<bool> ExisteUsuarioAuthAsync(string email);
