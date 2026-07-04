@@ -124,6 +124,14 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
+        var bloqueoActivo = _unitOfWork.UserBlocks
+            .ObtenerEntidad(b => b.ProfileId == perfil.Id && b.IsActive).ReturnValue;
+        if (bloqueoActivo is not null)
+        {
+            resultado.lpError("Cuenta bloqueada", bloqueoActivo.Message);
+            return resultado;
+        }
+
         resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
         return resultado;
     }
@@ -133,6 +141,17 @@ public class AuthLN : IAuthLN
         var resultado = new Response<TPerfilResultado>();
 
         var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == supabaseUserId).ReturnValue;
+        if (perfil is not null)
+        {
+            var bloqueoActivo = _unitOfWork.UserBlocks
+                .ObtenerEntidad(b => b.ProfileId == perfil.Id && b.IsActive).ReturnValue;
+            if (bloqueoActivo is not null)
+            {
+                resultado.lpError("Cuenta bloqueada", bloqueoActivo.Message);
+                return resultado;
+            }
+        }
+
         if (perfil is null)
         {
             var ahora = DateTime.UtcNow;

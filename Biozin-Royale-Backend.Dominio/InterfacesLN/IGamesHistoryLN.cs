@@ -6,4 +6,5 @@ namespace Biozin_Royale_Backend.Dominio.InterfacesLN;
 public interface IGamesHistoryLN
 {
     Task<Response<IEnumerable<TGamesHistory>>> ObtenerHistorialAsync(Guid userId);
+    Task<Response<IEnumerable<TGamesHistory>>> ObtenerHistorialDeUsuarioAsync(Guid adminId, Guid targetUserId);
 }

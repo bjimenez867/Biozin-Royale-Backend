@@ -16,6 +16,7 @@ public class UnitWorkEF : IUnitWork
     public IRepositoryAD<Promotion> Promotions { get; }
     public IRepositoryAD<PromotionClaim> PromotionClaims { get; }
     public IRepositoryAD<StaffMember> StaffMembers { get; }
+    public IRepositoryAD<UserBlock> UserBlocks { get; }
 
     public UnitWorkEF(ApplicationDbContext contexto)
     {
@@ -27,6 +28,7 @@ public class UnitWorkEF : IUnitWork
         Promotions = new RepositoryAD<Promotion>(contexto);
         PromotionClaims = new RepositoryAD<PromotionClaim>(contexto);
         StaffMembers = new RepositoryAD<StaffMember>(contexto);
+        UserBlocks = new RepositoryAD<UserBlock>(contexto);
     }
 
     public int Completar()

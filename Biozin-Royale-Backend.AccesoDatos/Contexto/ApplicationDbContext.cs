@@ -15,6 +15,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<Promotion> Promotions => Set<Promotion>();
         public DbSet<PromotionClaim> PromotionClaims => Set<PromotionClaim>();
         public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
+        public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -120,6 +121,21 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
                 entity.HasIndex(s => s.Email).IsUnique();
                 entity.HasIndex(s => s.Username).IsUnique();
+            });
+
+            modelBuilder.Entity<UserBlock>(entity =>
+            {
+                entity.ToTable("user_blocks");
+                entity.HasKey(b => b.Id);
+                entity.Property(b => b.Id).HasColumnName("id");
+                entity.Property(b => b.ProfileId).HasColumnName("profile_id");
+                entity.Property(b => b.BlockedBy).HasColumnName("blocked_by");
+                entity.Property(b => b.Reason).HasColumnName("reason");
+                entity.Property(b => b.Message).HasColumnName("message");
+                entity.Property(b => b.BlockedAt).HasColumnName("blocked_at");
+                entity.Property(b => b.UnblockedAt).HasColumnName("unblocked_at");
+                entity.Property(b => b.UnblockedBy).HasColumnName("unblocked_by");
+                entity.Property(b => b.IsActive).HasColumnName("is_active");
             });
         }
     }

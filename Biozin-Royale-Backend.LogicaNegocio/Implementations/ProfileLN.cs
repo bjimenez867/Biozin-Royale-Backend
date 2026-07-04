@@ -1,3 +1,4 @@
+using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
 using Biozin_Royale_Backend.Dominio.TypedEntities;
@@ -93,6 +94,150 @@ public class ProfileLN : IProfileLN
             }).ToList();
 
         return Task.FromResult(resultado);
+    }
+
+    public Task<Response<TUserBlockInfo>> ObtenerBloqueoActivoAsync(Guid adminId, Guid userId)
+    {
+        var resultado = new Response<TUserBlockInfo>();
+
+        if (!EsAdmin(adminId))
+        {
+            resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
+            return Task.FromResult(resultado);
+        }
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Usuario no encontrado", "No existe un perfil con ese identificador.");
+            return Task.FromResult(resultado);
+        }
+
+        var bloqueo = _unitOfWork.UserBlocks
+            .ObtenerEntidad(b => b.ProfileId == perfil.Id && b.IsActive).ReturnValue;
+
+        if (bloqueo is not null)
+        {
+            var bloqueadoPor = _unitOfWork.StaffMembers
+                .ObtenerEntidad(s => s.Id == bloqueo.BlockedBy).ReturnValue;
+
+            resultado.ReturnValue = new TUserBlockInfo
+            {
+                Id = bloqueo.Id,
+                Reason = bloqueo.Reason,
+                Message = bloqueo.Message,
+                BlockedAt = bloqueo.BlockedAt,
+                BlockedByName = bloqueadoPor?.DisplayName ?? bloqueadoPor?.Username ?? "Admin",
+            };
+        }
+
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<bool>> BloquearUsuarioAsync(Guid adminId, Guid userId, TBlockUserRequest datos)
+    {
+        var resultado = new Response<bool>();
+
+        if (!EsAdmin(adminId))
+        {
+            resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
+            return Task.FromResult(resultado);
+        }
+
+        var razonesValidas = new[] { "fraude", "incumplimiento", "conducta", "sospechoso", "otro" };
+        if (!razonesValidas.Contains(datos.Reason))
+        {
+            resultado.lpError("Datos inválidos", "La razón de bloqueo no es válida.");
+            return Task.FromResult(resultado);
+        }
+
+        if (string.IsNullOrWhiteSpace(datos.Message))
+        {
+            resultado.lpError("Datos inválidos", "El mensaje para el usuario es requerido.");
+            return Task.FromResult(resultado);
+        }
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Usuario no encontrado", "No existe un perfil con ese identificador.");
+            return Task.FromResult(resultado);
+        }
+
+        if (perfil.Status == "blocked")
+        {
+            resultado.lpError("Ya bloqueado", "Este usuario ya se encuentra bloqueado.");
+            return Task.FromResult(resultado);
+        }
+
+        var bloqueo = new UserBlock
+        {
+            Id = Guid.NewGuid(),
+            ProfileId = perfil.Id,
+            BlockedBy = adminId,
+            Reason = datos.Reason,
+            Message = datos.Message,
+            BlockedAt = DateTime.UtcNow,
+            IsActive = true,
+        };
+
+        perfil.Status = "blocked";
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.UserBlocks.Insertar(bloqueo);
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<bool>> DesbloquearUsuarioAsync(Guid adminId, Guid userId)
+    {
+        var resultado = new Response<bool>();
+
+        if (!EsAdmin(adminId))
+        {
+            resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
+            return Task.FromResult(resultado);
+        }
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Usuario no encontrado", "No existe un perfil con ese identificador.");
+            return Task.FromResult(resultado);
+        }
+
+        var bloqueo = _unitOfWork.UserBlocks
+            .ObtenerEntidad(b => b.ProfileId == perfil.Id && b.IsActive).ReturnValue;
+
+        if (bloqueo is null)
+        {
+            resultado.lpError("No bloqueado", "Este usuario no tiene un bloqueo activo.");
+            return Task.FromResult(resultado);
+        }
+
+        bloqueo.IsActive = false;
+        bloqueo.UnblockedAt = DateTime.UtcNow;
+        bloqueo.UnblockedBy = adminId;
+
+        perfil.Status = "active";
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.UserBlocks.Modificar(bloqueo);
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
+    private bool EsAdmin(Guid adminId)
+    {
+        var staffEmail = _unitOfWork.StaffMembers
+            .ObtenerEntidad(s => s.Id == adminId).ReturnValue?.Email;
+        return staffEmail is not null && CredentialsGenerator.DetectRole(staffEmail) == "admin";
     }
 
     public Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId)

@@ -1,6 +1,7 @@
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Biozin_Royale_Backend.API.Controllers;
 
@@ -22,6 +23,16 @@ public class GamesHistoryController : ControllerBase
         if (!TryGetUserId(out var userId)) return Unauthorized();
 
         var resultado = await _gamesHistoryLn.ObtenerHistorialAsync(userId);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    [Authorize(Roles = "admin")]
+    [HttpGet("admin/{userId:guid}")]
+    public async Task<IActionResult> GetForUser(Guid userId)
+    {
+        if (!TryGetUserId(out var adminId)) return Unauthorized();
+
+        var resultado = await _gamesHistoryLn.ObtenerHistorialDeUsuarioAsync(adminId, userId);
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
