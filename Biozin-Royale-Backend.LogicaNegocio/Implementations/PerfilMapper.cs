@@ -24,7 +24,7 @@ internal static class PerfilMapper
             Country = perfil.Country,
             Birthdate = perfil.Birthdate,
             Status = perfil.Status,
-            Role = perfil.Role,
+            Role = "user",
             IsGuest = perfil.IsGuest,
             Token = token,
             CamposPendientes = camposPendientes

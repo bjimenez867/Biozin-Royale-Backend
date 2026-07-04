@@ -8,7 +8,6 @@ public class StaffMember
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public string PasswordHash { get; set; } = string.Empty;
-    public string Role { get; set; } = string.Empty;
     public string Status { get; set; } = "active";
     public Guid? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }

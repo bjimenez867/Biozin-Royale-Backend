@@ -17,8 +17,9 @@ public class PromotionController : ControllerBase
         _promotionLN = promotionLN;
     }
 
+    
+    
     // ──────────── Jugador ────────────
-
     [HttpGet]
     public async Task<IActionResult> GetActivas()
     {
@@ -43,8 +44,8 @@ public class PromotionController : ControllerBase
         return res.blnError ? BadRequest(res) : Ok(res);
     }
 
+    
     // ──────────── Admin ────────────
-
     [HttpGet("admin/all")]
     public async Task<IActionResult> AdminGetAll()
     {
@@ -82,14 +83,6 @@ public class PromotionController : ControllerBase
     {
         if (!TryGetUserId(out var adminId)) return Unauthorized();
         var res = await _promotionLN.ObtenerBonosUsuarioAsync(adminId, userId);
-        return res.blnError ? Forbid() : Ok(res);
-    }
-
-    [HttpGet("admin/users")]
-    public async Task<IActionResult> AdminGetUsers()
-    {
-        if (!TryGetUserId(out var userId)) return Unauthorized();
-        var res = await _promotionLN.ObtenerUsuariosAsync(userId);
         return res.blnError ? Forbid() : Ok(res);
     }
 

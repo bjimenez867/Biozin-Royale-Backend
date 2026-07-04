@@ -85,7 +85,6 @@ public class AuthLN : IAuthLN
             Email = email,
             Country = PhoneCountryLookup.GetCountry(datos.Phone),
             Password = BCrypt.Net.BCrypt.HashPassword(datos.Password),
-            Role = "user"
         };
 
         var wallet = new Wallet
@@ -156,9 +155,7 @@ public class AuthLN : IAuthLN
                 UpdatedAt = ahora,
                 Email = emailNormalizado,
                 Password = null,
-                // El login social ya prueba que el usuario es dueño del correo (pasó por
-                // el proveedor real), así que aquí sí se puede confiar en el dominio.
-                Role = esAnonimo ? "user" : CredentialsGenerator.DetectRole(emailNormalizado)
+
             };
 
             var wallet = new Wallet
@@ -256,6 +253,6 @@ public class AuthLN : IAuthLN
 
     private string GenerarToken(Profile perfil)
     {
-        return JwtTokenFactory.GenerarToken(_configuration, perfil.UserId, perfil.Email, perfil.Role);
+        return JwtTokenFactory.GenerarToken(_configuration, perfil.UserId, perfil.Email, "user");
     }
 }

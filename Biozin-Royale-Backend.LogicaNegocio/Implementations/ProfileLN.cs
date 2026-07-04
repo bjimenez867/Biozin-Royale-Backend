@@ -62,6 +62,39 @@ public class ProfileLN : IProfileLN
         return Task.FromResult(resultado);
     }
 
+    public Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId)
+    {
+        var resultado = new Response<List<TAdminUser>>();
+
+        var staffEmail = _unitOfWork.StaffMembers
+            .ObtenerEntidad(s => s.Id == adminId).ReturnValue?.Email;
+        var esAdmin = staffEmail is not null && CredentialsGenerator.DetectRole(staffEmail) == "admin";
+
+        if (!esAdmin)
+        {
+            resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
+            return Task.FromResult(resultado);
+        }
+
+        var perfiles = _unitOfWork.Profiles
+            .ObtenerEntidades(p => !p.IsGuest)
+            .ReturnValue ?? [];
+
+        resultado.ReturnValue = perfiles
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => new TAdminUser
+            {
+                Id = p.UserId,
+                Username = p.Username,
+                DisplayName = p.DisplayName,
+                Email = p.Email,
+                Status = p.Status,
+                CreatedAt = p.CreatedAt
+            }).ToList();
+
+        return Task.FromResult(resultado);
+    }
+
     public Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId)
     {
         var resultado = new Response<TEstadisticas>();

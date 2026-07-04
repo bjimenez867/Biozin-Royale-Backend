@@ -64,7 +64,6 @@ public class PromotionLN : IPromotionLN
             Id = Guid.NewGuid(),
             Title = datos.Title.Trim(),
             Description = datos.Description?.Trim(),
-            PromotionType = datos.PromotionType.Trim(),
             Amount = datos.Amount,
             IsActive = datos.IsActive,
             StartsAt = datos.StartsAt,
@@ -103,33 +102,6 @@ public class PromotionLN : IPromotionLN
         return Task.FromResult(resultado);
     }
 
-    public Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId)
-    {
-        var resultado = new Response<List<TAdminUser>>();
-        if (!EsAdmin(adminId))
-        {
-            resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
-            return Task.FromResult(resultado);
-        }
-
-        var perfiles = _unitOfWork.Profiles
-            .ObtenerEntidades(p => p.Role == "user" && !p.IsGuest)
-            .ReturnValue ?? [];
-
-        resultado.ReturnValue = perfiles.Select(p => new TAdminUser
-        {
-            Id = p.UserId,
-            Username = p.Username,
-            DisplayName = p.DisplayName,
-            Email = p.Email,
-            Status = p.Status,
-            Role = p.Role,
-            CreatedAt = p.CreatedAt
-        }).ToList();
-
-        return Task.FromResult(resultado);
-    }
-
     public Task<Response<TPromotionClaim>> OtorgarBonoAsync(Guid adminId, Guid targetUserId, TCreatePromotion datos)
     {
         var resultado = new Response<TPromotionClaim>();
@@ -152,7 +124,6 @@ public class PromotionLN : IPromotionLN
             Id = Guid.NewGuid(),
             Title = string.IsNullOrWhiteSpace(datos.Title) ? "Bono personalizado" : datos.Title.Trim(),
             Description = datos.Description?.Trim(),
-            PromotionType = string.IsNullOrWhiteSpace(datos.PromotionType) ? "Liquidez" : datos.PromotionType,
             Amount = datos.Amount,
             IsActive = false,
             CreatedAt = ahora
@@ -364,8 +335,8 @@ public class PromotionLN : IPromotionLN
 
     private bool EsAdmin(Guid userId)
     {
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
-        return perfil?.Role == "admin";
+        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == userId).ReturnValue;
+        return staff is not null && CredentialsGenerator.DetectRole(staff.Email) == "admin";
     }
 
     private static TPromotion Mapear(Promotion p) => new()
@@ -373,7 +344,6 @@ public class PromotionLN : IPromotionLN
         Id = p.Id,
         Title = p.Title,
         Description = p.Description,
-        PromotionType = p.PromotionType,
         Amount = p.Amount,
         IsActive = p.IsActive,
         StartsAt = p.StartsAt,

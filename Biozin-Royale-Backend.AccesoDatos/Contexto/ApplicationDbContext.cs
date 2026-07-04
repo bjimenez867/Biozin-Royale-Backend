@@ -36,7 +36,6 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.Country).HasColumnName("country");
                 entity.Property(p => p.Birthdate).HasColumnName("birthdate");
                 entity.Property(p => p.Password).HasColumnName("password");
-                entity.Property(p => p.Role).HasColumnName("role");
                 entity.HasIndex(p => p.UserId).IsUnique();
                 entity.HasIndex(p => p.Username).IsUnique();
             });
@@ -87,7 +86,6 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.Id).HasColumnName("id");
                 entity.Property(p => p.Title).HasColumnName("title");
                 entity.Property(p => p.Description).HasColumnName("description");
-                entity.Property(p => p.PromotionType).HasColumnName("promotion_type");
                 entity.Property(p => p.IsActive).HasColumnName("is_active");
                 entity.Property(p => p.Amount).HasColumnName("amount").HasPrecision(18, 2);
                 entity.Property(p => p.StartsAt).HasColumnName("starts_at");
@@ -116,7 +114,6 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(s => s.Email).HasColumnName("email");
                 entity.Property(s => s.Phone).HasColumnName("phone");
                 entity.Property(s => s.PasswordHash).HasColumnName("password_hash");
-                entity.Property(s => s.Role).HasColumnName("role");
                 entity.Property(s => s.Status).HasColumnName("status");
                 entity.Property(s => s.CreatedBy).HasColumnName("created_by");
                 entity.Property(s => s.CreatedAt).HasColumnName("created_at");

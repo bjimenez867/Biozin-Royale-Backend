@@ -8,4 +8,5 @@ public interface IProfileLN
     Task<Response<TPerfilResultado>> ObtenerPerfilAsync(Guid userId);
     Task<Response<TPerfilResultado>> ActualizarPerfilAsync(Guid userId, TActualizarPerfil datos);
     Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId);
+    Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId);
 }

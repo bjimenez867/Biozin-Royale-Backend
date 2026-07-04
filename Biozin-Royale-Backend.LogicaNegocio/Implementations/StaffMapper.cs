@@ -1,5 +1,6 @@
 using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.TypedEntities;
+using Biozin_Royale_Backend.Utilidades;
 
 namespace Biozin_Royale_Backend.LogicaNegocio.Implementations;
 
@@ -19,7 +20,7 @@ internal static class StaffMapper
             Country = null,
             Birthdate = null,
             Status = staff.Status,
-            Role = staff.Role,
+            Role = CredentialsGenerator.DetectRole(staff.Email),
             IsGuest = false,
             Token = token,
             CamposPendientes = new List<string>(),

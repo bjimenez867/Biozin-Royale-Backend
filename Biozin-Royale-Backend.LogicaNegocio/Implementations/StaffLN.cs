@@ -53,7 +53,6 @@ public class StaffLN : IStaffLN
             Email = email,
             Phone = datos.Phone,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(passwordTemporal),
-            Role = rol,
             Status = "active",
             CreatedBy = creadoPorId,
             CreatedAt = ahora,
@@ -105,7 +104,7 @@ public class StaffLN : IStaffLN
             return Task.FromResult(resultado);
         }
 
-        var token = JwtTokenFactory.GenerarToken(_configuration, staff.Id, staff.Email, staff.Role);
+        var token = JwtTokenFactory.GenerarToken(_configuration, staff.Id, staff.Email, CredentialsGenerator.DetectRole(staff.Email));
         resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token);
         return Task.FromResult(resultado);
     }
