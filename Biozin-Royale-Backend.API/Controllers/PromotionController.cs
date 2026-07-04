@@ -77,6 +77,14 @@ public class PromotionController : ControllerBase
         return res.blnError ? BadRequest(res) : Ok(res);
     }
 
+    [HttpGet("admin/users/{userId:guid}/claims")]
+    public async Task<IActionResult> AdminGetUserClaims(Guid userId)
+    {
+        if (!TryGetUserId(out var adminId)) return Unauthorized();
+        var res = await _promotionLN.ObtenerBonosUsuarioAsync(adminId, userId);
+        return res.blnError ? Forbid() : Ok(res);
+    }
+
     [HttpGet("admin/users")]
     public async Task<IActionResult> AdminGetUsers()
     {

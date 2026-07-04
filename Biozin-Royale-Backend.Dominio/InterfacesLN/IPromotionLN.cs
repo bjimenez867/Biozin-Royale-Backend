@@ -10,6 +10,7 @@ public interface IPromotionLN
     Task<Response<TPromotion>> ToggleActivoAsync(Guid adminId, Guid promotionId);
     Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId);
     Task<Response<TPromotionClaim>> OtorgarBonoAsync(Guid adminId, Guid targetUserId, TCreatePromotion datos);
+    Task<Response<List<TPromotionClaim>>> ObtenerBonosUsuarioAsync(Guid adminId, Guid targetUserId);
 
     Task<Response<List<TPromotion>>> ObtenerActivasAsync(Guid userId);
     Task<Response<TPromotionClaim>> ReclamarAsync(Guid userId, Guid promotionId);
