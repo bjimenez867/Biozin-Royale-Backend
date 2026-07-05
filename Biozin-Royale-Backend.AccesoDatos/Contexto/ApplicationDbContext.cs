@@ -89,7 +89,6 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.Description).HasColumnName("description");
                 entity.Property(p => p.IsActive).HasColumnName("is_active");
                 entity.Property(p => p.Amount).HasColumnName("amount").HasPrecision(18, 2);
-                entity.Property(p => p.StartsAt).HasColumnName("starts_at");
                 entity.Property(p => p.EndsAt).HasColumnName("ends_at");
                 entity.Property(p => p.CreatedAt).HasColumnName("created_at");
             });

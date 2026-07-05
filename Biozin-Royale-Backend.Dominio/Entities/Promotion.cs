@@ -7,7 +7,6 @@ public class Promotion
     public string? Description { get; set; }
     public bool IsActive { get; set; }
     public decimal Amount { get; set; }
-    public DateTime? StartsAt { get; set; }
     public DateTime? EndsAt { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -66,7 +66,6 @@ public class PromotionLN : IPromotionLN
             Description = datos.Description?.Trim(),
             Amount = datos.Amount,
             IsActive = datos.IsActive,
-            StartsAt = datos.StartsAt,
             EndsAt = datos.EndsAt,
             CreatedAt = DateTime.UtcNow
         };
@@ -346,7 +345,6 @@ public class PromotionLN : IPromotionLN
         Description = p.Description,
         Amount = p.Amount,
         IsActive = p.IsActive,
-        StartsAt = p.StartsAt,
         EndsAt = p.EndsAt,
         CreatedAt = p.CreatedAt
     };
