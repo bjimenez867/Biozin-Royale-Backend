@@ -10,6 +10,7 @@ public class StaffMember
     public string PasswordHash { get; set; } = string.Empty;
     public string Status { get; set; } = "active";
     public Guid? CreatedBy { get; set; }
+    public bool MustChangePassword { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

@@ -54,6 +54,7 @@ public class StaffLN : IStaffLN
             Phone = datos.Phone,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(passwordTemporal),
             Status = "active",
+            MustChangePassword = true,
             CreatedBy = creadoPorId,
             CreatedAt = ahora,
             UpdatedAt = ahora
@@ -234,6 +235,40 @@ public class StaffLN : IStaffLN
         }
 
         _unitOfWork.StaffMembers.Eliminar(staff);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<bool>> CambiarPasswordAsync(Guid staffId, string oldPassword, string newPassword)
+    {
+        var resultado = new Response<bool>();
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+        {
+            resultado.lpError("Contraseña inválida", "La nueva contraseña debe tener al menos 8 caracteres.");
+            return Task.FromResult(resultado);
+        }
+
+        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == staffId).ReturnValue;
+        if (staff is null)
+        {
+            resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
+            return Task.FromResult(resultado);
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(oldPassword, staff.PasswordHash))
+        {
+            resultado.lpError("Contraseña incorrecta", "La contraseña actual es incorrecta.");
+            return Task.FromResult(resultado);
+        }
+
+        staff.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        staff.MustChangePassword = false;
+        staff.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.StaffMembers.Modificar(staff);
         _unitOfWork.Completar();
 
         resultado.ReturnValue = true;

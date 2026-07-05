@@ -97,6 +97,16 @@ public class StaffController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [HttpPut("me/password")]
+    [Authorize(Roles = "admin,soporte")]
+    public async Task<IActionResult> CambiarPassword([FromBody] TCambiarPasswordStaff datos)
+    {
+        if (!TryGetUserId(out var staffId)) return Unauthorized();
+
+        var resultado = await _staffLN.CambiarPasswordAsync(staffId, datos.OldPassword, datos.NewPassword);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var sub = User.FindFirst("sub")?.Value;

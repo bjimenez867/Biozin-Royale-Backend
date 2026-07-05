@@ -29,6 +29,7 @@ internal static class StaffMapper
             Token = token,
             CamposPendientes = new List<string>(),
             TempPassword = tempPassword,
+            MustChangePassword = staff.MustChangePassword,
             CreatedAt = staff.CreatedAt,
             CreatedByName = createdByName,
         };
