@@ -8,4 +8,6 @@ public interface IStaffLN
     Task<Response<TPerfilResultado>> CrearMiembroAsync(TCrearStaffMember datos, Guid creadoPorId);
     Task<Response<IEnumerable<TPerfilResultado>>> ListarMiembrosAsync();
     Task<Response<TPerfilResultado>> LoginAsync(string email, string password);
+    Task<Response<TPerfilResultado>> ObtenerMeAsync(Guid staffId);
+    Task<Response<TPerfilResultado>> ActualizarMeAsync(Guid staffId, TActualizarStaffMember datos);
 }

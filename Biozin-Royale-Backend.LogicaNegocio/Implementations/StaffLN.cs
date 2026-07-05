@@ -109,6 +109,45 @@ public class StaffLN : IStaffLN
         return Task.FromResult(resultado);
     }
 
+    public Task<Response<TPerfilResultado>> ObtenerMeAsync(Guid staffId)
+    {
+        var resultado = new Response<TPerfilResultado>();
+
+        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == staffId).ReturnValue;
+        if (staff is null)
+        {
+            resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
+            return Task.FromResult(resultado);
+        }
+
+        resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token: null);
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<TPerfilResultado>> ActualizarMeAsync(Guid staffId, TActualizarStaffMember datos)
+    {
+        var resultado = new Response<TPerfilResultado>();
+
+        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == staffId).ReturnValue;
+        if (staff is null)
+        {
+            resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
+            return Task.FromResult(resultado);
+        }
+
+        if (!string.IsNullOrWhiteSpace(datos.DisplayName))
+            staff.DisplayName = datos.DisplayName.Trim();
+
+        staff.Phone = string.IsNullOrWhiteSpace(datos.Phone) ? null : datos.Phone.Trim();
+        staff.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.StaffMembers.Modificar(staff);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token: null);
+        return Task.FromResult(resultado);
+    }
+
     private string GenerarEmailUnico(string baseEmail, string rol)
     {
         var sufijo = 0;
