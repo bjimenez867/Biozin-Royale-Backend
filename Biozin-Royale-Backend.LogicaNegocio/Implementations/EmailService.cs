@@ -60,7 +60,6 @@ namespace Biozin_Royale_Backend.LogicaNegocio.Implementations
             html = html.Replace("{correoEmpresarial}", correoEmpresarial);
             html = html.Replace("{password}", password);
             html = html.Replace("{rol}", rol);
-            html = html.Replace("{urlPanel}", _config["Mail:PanelUrl"] ?? "#");
             html = html.Replace("{anio}", DateTime.Now.Year.ToString());
 
             builder.HtmlBody = html;
