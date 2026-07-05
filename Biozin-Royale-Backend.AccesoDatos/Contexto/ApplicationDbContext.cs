@@ -37,6 +37,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.Country).HasColumnName("country");
                 entity.Property(p => p.Birthdate).HasColumnName("birthdate");
                 entity.Property(p => p.Password).HasColumnName("password");
+                entity.Property(p => p.ResetCode).HasColumnName("reset_code");
+                entity.Property(p => p.ResetCodeExpiresAt).HasColumnName("reset_code_expires_at");
                 entity.HasIndex(p => p.UserId).IsUnique();
                 entity.HasIndex(p => p.Username).IsUnique();
             });
@@ -116,6 +118,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(s => s.PasswordHash).HasColumnName("password_hash");
                 entity.Property(s => s.Status).HasColumnName("status");
                 entity.Property(s => s.MustChangePassword).HasColumnName("must_change_password");
+                entity.Property(s => s.ResetCode).HasColumnName("reset_code");
+                entity.Property(s => s.ResetCodeExpiresAt).HasColumnName("reset_code_expires_at");
                 entity.Property(s => s.CreatedBy).HasColumnName("created_by");
                 entity.Property(s => s.CreatedAt).HasColumnName("created_at");
                 entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");

@@ -16,4 +16,6 @@ public class Profile
     public string? Country { get; set; }
     public DateOnly? Birthdate { get; set; }
     public string? Password { get; set; }
+    public string? ResetCode { get; set; }
+    public DateTime? ResetCodeExpiresAt { get; set; }
     }

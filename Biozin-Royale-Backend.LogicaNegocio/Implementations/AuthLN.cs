@@ -14,12 +14,14 @@ public class AuthLN : IAuthLN
     private readonly IUnitWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly IStaffLN _staffLN;
+    private readonly IEmailService _emailService;
 
-    public AuthLN(IUnitWork unitOfWork, IConfiguration configuration, IStaffLN staffLN)
+    public AuthLN(IUnitWork unitOfWork, IConfiguration configuration, IStaffLN staffLN, IEmailService emailService)
     {
         _unitOfWork = unitOfWork;
         _configuration = configuration;
         _staffLN = staffLN;
+        _emailService = emailService;
     }
 
     public async Task<Response<TPerfilResultado>> RegistrarManualAsync(TRegistroManual datos)
@@ -255,6 +257,180 @@ public class AuthLN : IAuthLN
 
         resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
         return resultado;
+    }
+
+    public async Task<Response<bool>> SolicitarRecuperacionAsync(string email)
+    {
+        var resultado = new Response<bool>();
+        var emailNorm = email.Trim().ToLowerInvariant();
+        var remitente = _configuration["Mail:Remitente"] ?? "no-reply@biozinroyale.com";
+
+        // Correos de staff (@admin.biozin.cr / @support.biozin.cr) viven en staff_members
+        if (CredentialsGenerator.DetectRole(emailNorm) != "user")
+        {
+            var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Email == emailNorm).ReturnValue;
+
+            if (staff is null)
+            {
+                Console.Error.WriteLine($"[Recuperación] Staff no encontrado: {emailNorm}");
+                resultado.ReturnValue = true;
+                return resultado;
+            }
+
+            var codigoStaff = Random.Shared.Next(100_000, 1_000_000).ToString();
+            staff.ResetCode = BCrypt.Net.BCrypt.HashPassword(codigoStaff);
+            staff.ResetCodeExpiresAt = DateTime.UtcNow.AddMinutes(15);
+            staff.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.StaffMembers.Modificar(staff);
+            _unitOfWork.Completar();
+
+            Console.WriteLine($"[Recuperación] Código generado para staff {emailNorm}. Enviando correo...");
+
+            try
+            {
+                await _emailService.EnviarCodigoRecuperacionAsync(
+                    correoDestino: emailNorm,
+                    nombre: staff.DisplayName,
+                    codigo: codigoStaff,
+                    correoRemitente: remitente
+                );
+                Console.WriteLine($"[Recuperación] Correo enviado exitosamente a {emailNorm}.");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Recuperación] Error enviando correo a {emailNorm}: {ex.GetType().Name} — {ex.Message}");
+            }
+
+            resultado.ReturnValue = true;
+            return resultado;
+        }
+
+        // Usuarios normales → profiles
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+
+        if (perfil is null)
+        {
+            Console.Error.WriteLine($"[Recuperación] Correo no encontrado: {emailNorm}");
+            resultado.ReturnValue = true;
+            return resultado;
+        }
+
+        if (string.IsNullOrEmpty(perfil.Password))
+        {
+            Console.Error.WriteLine($"[Recuperación] El perfil {emailNorm} no tiene contraseña (cuenta OAuth).");
+            resultado.ReturnValue = true;
+            return resultado;
+        }
+
+        var codigo = Random.Shared.Next(100_000, 1_000_000).ToString();
+        perfil.ResetCode = BCrypt.Net.BCrypt.HashPassword(codigo);
+        perfil.ResetCodeExpiresAt = DateTime.UtcNow.AddMinutes(15);
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        Console.WriteLine($"[Recuperación] Código generado para {emailNorm}. Enviando correo...");
+
+        try
+        {
+            await _emailService.EnviarCodigoRecuperacionAsync(
+                correoDestino: emailNorm,
+                nombre: perfil.DisplayName ?? perfil.Username,
+                codigo: codigo,
+                correoRemitente: remitente
+            );
+            Console.WriteLine($"[Recuperación] Correo enviado exitosamente a {emailNorm}.");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Recuperación] Error enviando correo a {emailNorm}: {ex.GetType().Name} — {ex.Message}");
+        }
+
+        resultado.ReturnValue = true;
+        return resultado;
+    }
+
+    public Task<Response<bool>> RestablecerPasswordAsync(string email, string code, string newPassword)
+    {
+        var resultado = new Response<bool>();
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+        {
+            resultado.lpError("Contraseña inválida", "La nueva contraseña debe tener al menos 8 caracteres.");
+            return Task.FromResult(resultado);
+        }
+
+        var emailNorm = email.Trim().ToLowerInvariant();
+
+        // Correos de staff
+        if (CredentialsGenerator.DetectRole(emailNorm) != "user")
+        {
+            var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Email == emailNorm).ReturnValue;
+
+            if (staff is null || string.IsNullOrEmpty(staff.ResetCode) || staff.ResetCodeExpiresAt is null)
+            {
+                resultado.lpError("Código inválido", "El código no es válido o ya fue usado.");
+                return Task.FromResult(resultado);
+            }
+
+            if (DateTime.UtcNow > staff.ResetCodeExpiresAt)
+            {
+                resultado.lpError("Código expirado", "El código de recuperación ha expirado. Solicita uno nuevo.");
+                return Task.FromResult(resultado);
+            }
+
+            if (!BCrypt.Net.BCrypt.Verify(code.Trim(), staff.ResetCode))
+            {
+                resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
+                return Task.FromResult(resultado);
+            }
+
+            staff.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            staff.ResetCode = null;
+            staff.ResetCodeExpiresAt = null;
+            staff.MustChangePassword = false;
+            staff.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.StaffMembers.Modificar(staff);
+            _unitOfWork.Completar();
+
+            resultado.ReturnValue = true;
+            return Task.FromResult(resultado);
+        }
+
+        // Usuarios normales
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+
+        if (perfil is null || string.IsNullOrEmpty(perfil.ResetCode) || perfil.ResetCodeExpiresAt is null)
+        {
+            resultado.lpError("Código inválido", "El código no es válido o ya fue usado.");
+            return Task.FromResult(resultado);
+        }
+
+        if (DateTime.UtcNow > perfil.ResetCodeExpiresAt)
+        {
+            resultado.lpError("Código expirado", "El código de recuperación ha expirado. Solicita uno nuevo.");
+            return Task.FromResult(resultado);
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(code.Trim(), perfil.ResetCode))
+        {
+            resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
+            return Task.FromResult(resultado);
+        }
+
+        perfil.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        perfil.ResetCode = null;
+        perfil.ResetCodeExpiresAt = null;
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
     }
 
     private string GenerarUsernameUnico(string nombreBase)

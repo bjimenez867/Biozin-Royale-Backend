@@ -71,6 +71,22 @@ public class AuthController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [AllowAnonymous]
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] TSolicitarRecuperacion datos)
+    {
+        var resultado = await _authLN.SolicitarRecuperacionAsync(datos.Email);
+        return Ok(resultado);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] TRestablecerPassword datos)
+    {
+        var resultado = await _authLN.RestablecerPasswordAsync(datos.Email, datos.Code, datos.NewPassword);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     private static string? ExtraerNombreCompleto(string? userMetadataJson)
     {
         if (string.IsNullOrWhiteSpace(userMetadataJson)) return null;

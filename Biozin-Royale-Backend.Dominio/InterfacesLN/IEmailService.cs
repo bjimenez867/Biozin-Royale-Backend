@@ -13,7 +13,13 @@ namespace Biozin_Royale_Backend.Dominio.InterfacesLN
             string rol,
             string correoRemitente
         );
-        
+
+        Task EnviarCodigoRecuperacionAsync(
+            string correoDestino,
+            string nombre,
+            string codigo,
+            string correoRemitente
+        );
 
     }
 

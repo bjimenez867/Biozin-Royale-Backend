@@ -9,4 +9,6 @@ public interface IAuthLN
     Task<Response<TPerfilResultado>> LoginManualAsync(string email, string password);
     Task<Response<TPerfilResultado>> SincronizarOAuthAsync(Guid supabaseUserId, string? email, string? nombreCompleto, bool esAnonimo);
     Task<Response<TPerfilResultado>> ReclamarInvitadoAsync(Guid userId, TRegistroManual datos);
+    Task<Response<bool>> SolicitarRecuperacionAsync(string email);
+    Task<Response<bool>> RestablecerPasswordAsync(string email, string code, string newPassword);
 }

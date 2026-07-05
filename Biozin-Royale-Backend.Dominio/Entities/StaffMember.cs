@@ -11,6 +11,8 @@ public class StaffMember
     public string Status { get; set; } = "active";
     public Guid? CreatedBy { get; set; }
     public bool MustChangePassword { get; set; } = true;
+    public string? ResetCode { get; set; }
+    public DateTime? ResetCodeExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
