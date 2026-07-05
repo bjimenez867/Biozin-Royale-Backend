@@ -148,6 +148,98 @@ public class StaffLN : IStaffLN
         return Task.FromResult(resultado);
     }
 
+    public Task<Response<TPerfilResultado>> ObtenerMiembroAsync(Guid id)
+    {
+        var resultado = new Response<TPerfilResultado>();
+
+        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == id).ReturnValue;
+        if (staff is null)
+        {
+            resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
+            return Task.FromResult(resultado);
+        }
+
+        string? createdByName = null;
+        if (staff.CreatedBy.HasValue)
+        {
+            var creator = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == staff.CreatedBy.Value).ReturnValue;
+            createdByName = creator?.DisplayName ?? creator?.Username;
+        }
+
+        resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token: null, createdByName: createdByName);
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<TPerfilResultado>> ActualizarMiembroAsync(Guid id, TActualizarStaffMember datos)
+    {
+        var resultado = new Response<TPerfilResultado>();
+
+        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == id).ReturnValue;
+        if (staff is null)
+        {
+            resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
+            return Task.FromResult(resultado);
+        }
+
+        if (!string.IsNullOrWhiteSpace(datos.DisplayName))
+            staff.DisplayName = datos.DisplayName.Trim();
+
+        staff.Phone = string.IsNullOrWhiteSpace(datos.Phone) ? null : datos.Phone.Trim();
+        staff.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.StaffMembers.Modificar(staff);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token: null);
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<TPerfilResultado>> CambiarStatusMiembroAsync(Guid id, string nuevoStatus)
+    {
+        var resultado = new Response<TPerfilResultado>();
+
+        var statusNorm = nuevoStatus.Trim().ToLowerInvariant();
+        if (statusNorm != "active" && statusNorm != "inactive")
+        {
+            resultado.lpError("Estado inválido", "El estado debe ser 'active' o 'inactive'.");
+            return Task.FromResult(resultado);
+        }
+
+        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == id).ReturnValue;
+        if (staff is null)
+        {
+            resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
+            return Task.FromResult(resultado);
+        }
+
+        staff.Status = statusNorm;
+        staff.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.StaffMembers.Modificar(staff);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token: null);
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<bool>> EliminarMiembroAsync(Guid id)
+    {
+        var resultado = new Response<bool>();
+
+        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == id).ReturnValue;
+        if (staff is null)
+        {
+            resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
+            return Task.FromResult(resultado);
+        }
+
+        _unitOfWork.StaffMembers.Eliminar(staff);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
     private string GenerarEmailUnico(string baseEmail, string rol)
     {
         var sufijo = 0;

@@ -8,7 +8,11 @@ namespace Biozin_Royale_Backend.LogicaNegocio.Implementations;
 // (AuthService, roleGuard, currentProfile) reconoce una sesión de staff sin cambios.
 internal static class StaffMapper
 {
-    public static TPerfilResultado MapearComoPerfil(StaffMember staff, string? token, string? tempPassword = null)
+    public static TPerfilResultado MapearComoPerfil(
+        StaffMember staff,
+        string? token,
+        string? tempPassword = null,
+        string? createdByName = null)
     {
         return new TPerfilResultado
         {
@@ -24,7 +28,9 @@ internal static class StaffMapper
             IsGuest = false,
             Token = token,
             CamposPendientes = new List<string>(),
-            TempPassword = tempPassword
+            TempPassword = tempPassword,
+            CreatedAt = staff.CreatedAt,
+            CreatedByName = createdByName,
         };
     }
 }

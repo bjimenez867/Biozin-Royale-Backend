@@ -16,4 +16,7 @@ public class TPerfilResultado
     public List<string> CamposPendientes { get; set; } = new();
 
     public string? TempPassword { get; set; }
+
+    public DateTime? CreatedAt { get; set; }
+    public string? CreatedByName { get; set; }
 }
