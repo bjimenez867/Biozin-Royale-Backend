@@ -275,6 +275,47 @@ public class StaffLN : IStaffLN
         return Task.FromResult(resultado);
     }
 
+    public async Task<Response<bool>> RestablecerPasswordStaffAsync(Guid id)
+    {
+        var resultado = new Response<bool>();
+
+        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == id).ReturnValue;
+        if (staff is null)
+        {
+            resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
+            return resultado;
+        }
+
+        var nuevaPassword = CredentialsGenerator.GeneratePassword();
+        staff.PasswordHash = BCrypt.Net.BCrypt.HashPassword(nuevaPassword);
+        staff.MustChangePassword = true;
+        staff.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.StaffMembers.Modificar(staff);
+        _unitOfWork.Completar();
+
+        var rol = CredentialsGenerator.DetectRole(staff.Email) == "admin" ? "Administrador" : "Soporte";
+        var remitente = _configuration["Mail:Remitente"] ?? "no-reply@biozinroyale.com";
+
+        try
+        {
+            await _emailService.EnviarCredencialesStaffAsync(
+                correoDestino: staff.Email,
+                nombre: staff.DisplayName,
+                correoEmpresarial: staff.Email,
+                password: nuevaPassword,
+                rol: rol,
+                correoRemitente: remitente);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[RestablecerPasswordStaff] Error enviando correo a {staff.Email}: {ex.GetType().Name} — {ex.Message}");
+        }
+
+        resultado.ReturnValue = true;
+        return resultado;
+    }
+
     private string GenerarEmailUnico(string baseEmail, string rol)
     {
         var sufijo = 0;

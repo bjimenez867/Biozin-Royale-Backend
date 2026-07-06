@@ -64,6 +64,17 @@ public class StaffController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [HttpPost("{id:guid}/reset-password")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> RestablecerPassword(Guid id)
+    {
+        if (!TryGetUserId(out var callerId) || callerId == id)
+            return BadRequest(new { blnError = true, strResponseTittle = "Acción no permitida", strResponseMessage = "No puedes restablecer tu propia contraseña desde aquí." });
+
+        var resultado = await _staffLN.RestablecerPasswordStaffAsync(id);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "admin")]
     public async Task<IActionResult> EliminarMiembro(Guid id)

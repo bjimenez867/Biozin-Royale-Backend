@@ -16,4 +16,5 @@ public interface IStaffLN
     Task<Response<TPerfilResultado>> CambiarStatusMiembroAsync(Guid id, string nuevoStatus);
     Task<Response<bool>> EliminarMiembroAsync(Guid id);
     Task<Response<bool>> CambiarPasswordAsync(Guid staffId, string oldPassword, string newPassword);
+    Task<Response<bool>> RestablecerPasswordStaffAsync(Guid id);
 }
