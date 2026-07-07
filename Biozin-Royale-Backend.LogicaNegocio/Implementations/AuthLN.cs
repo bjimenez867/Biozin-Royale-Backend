@@ -87,6 +87,7 @@ public class AuthLN : IAuthLN
             Email = email,
             Country = PhoneCountryLookup.GetCountry(datos.Phone),
             Password = BCrypt.Net.BCrypt.HashPassword(datos.Password),
+            EmailVerified = false,
         };
 
         var wallet = new Wallet
@@ -102,7 +103,11 @@ public class AuthLN : IAuthLN
         _unitOfWork.Wallets.Insertar(wallet);
         _unitOfWork.Completar();
 
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
+        // Enviar código de verificación (no bloqueante)
+        await EnviarVerificacionAsync(email);
+
+        // Devuelve perfil sin token: el usuario aún no está autenticado hasta verificar
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null);
         return resultado;
     }
 
@@ -123,6 +128,12 @@ public class AuthLN : IAuthLN
         if (perfil is null || perfil.Password is null || !BCrypt.Net.BCrypt.Verify(password, perfil.Password))
         {
             resultado.lpError("Credenciales inválidas", "El correo o la contraseña son incorrectos.");
+            return resultado;
+        }
+
+        if (!perfil.EmailVerified)
+        {
+            resultado.lpError("Email no verificado", "Debes verificar tu correo electrónico antes de iniciar sesión.");
             return resultado;
         }
 
@@ -176,7 +187,8 @@ public class AuthLN : IAuthLN
                 UpdatedAt = ahora,
                 Email = emailNormalizado,
                 Password = null,
-
+                // OAuth verifica la identidad del usuario vía proveedor; los invitados no tienen correo real
+                EmailVerified = !esAnonimo,
             };
 
             var wallet = new Wallet
@@ -250,12 +262,15 @@ public class AuthLN : IAuthLN
         perfil.Email = email;
         perfil.Password = BCrypt.Net.BCrypt.HashPassword(datos.Password);
         perfil.IsGuest = false;
+        perfil.EmailVerified = false;
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
         _unitOfWork.Completar();
 
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
+        await EnviarVerificacionAsync(email);
+
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null);
         return resultado;
     }
 
@@ -444,6 +459,83 @@ public class AuthLN : IAuthLN
                 return candidato;
             sufijo++;
         }
+    }
+
+    public async Task<Response<bool>> EnviarVerificacionAsync(string email)
+    {
+        var resultado = new Response<bool>();
+        var emailNorm = email.Trim().ToLowerInvariant();
+        var remitente = _configuration["Mail:Remitente"] ?? "no-reply@biozinroyale.com";
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+        if (perfil is null || perfil.EmailVerified)
+        {
+            resultado.ReturnValue = true;
+            return resultado;
+        }
+
+        var codigo = Random.Shared.Next(100_000, 1_000_000).ToString();
+        perfil.VerifyCode = BCrypt.Net.BCrypt.HashPassword(codigo);
+        perfil.VerifyCodeExpiresAt = DateTime.UtcNow.AddMinutes(15);
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        try
+        {
+            await _emailService.EnviarVerificacionEmailAsync(
+                correoDestino: emailNorm,
+                nombre: perfil.DisplayName ?? perfil.Username,
+                codigo: codigo,
+                correoRemitente: remitente
+            );
+            Console.WriteLine($"[Verificación] Código enviado a {emailNorm}.");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Verificación] Error enviando correo a {emailNorm}: {ex.GetType().Name} — {ex.Message}");
+        }
+
+        resultado.ReturnValue = true;
+        return resultado;
+    }
+
+    public Task<Response<bool>> VerificarEmailAsync(string email, string code)
+    {
+        var resultado = new Response<bool>();
+        var emailNorm = email.Trim().ToLowerInvariant();
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+
+        if (perfil is null || string.IsNullOrEmpty(perfil.VerifyCode) || perfil.VerifyCodeExpiresAt is null)
+        {
+            resultado.lpError("Código inválido", "El código no es válido o ya fue usado.");
+            return Task.FromResult(resultado);
+        }
+
+        if (DateTime.UtcNow > perfil.VerifyCodeExpiresAt)
+        {
+            resultado.lpError("Código expirado", "El código de verificación ha expirado. Solicita uno nuevo.");
+            return Task.FromResult(resultado);
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(code.Trim(), perfil.VerifyCode))
+        {
+            resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
+            return Task.FromResult(resultado);
+        }
+
+        perfil.EmailVerified = true;
+        perfil.VerifyCode = null;
+        perfil.VerifyCodeExpiresAt = null;
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
     }
 
     private string GenerarToken(Profile perfil)

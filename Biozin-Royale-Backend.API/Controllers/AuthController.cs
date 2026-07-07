@@ -87,6 +87,22 @@ public class AuthController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [AllowAnonymous]
+    [HttpPost("verify-email")]
+    public async Task<IActionResult> VerifyEmail([FromBody] TVerificarEmail datos)
+    {
+        var resultado = await _authLN.VerificarEmailAsync(datos.Email, datos.Code);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("resend-verification")]
+    public async Task<IActionResult> ResendVerification([FromBody] TSolicitarRecuperacion datos)
+    {
+        var resultado = await _authLN.EnviarVerificacionAsync(datos.Email);
+        return Ok(resultado);
+    }
+
     private static string? ExtraerNombreCompleto(string? userMetadataJson)
     {
         if (string.IsNullOrWhiteSpace(userMetadataJson)) return null;

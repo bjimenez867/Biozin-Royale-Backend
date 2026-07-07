@@ -21,6 +21,13 @@ namespace Biozin_Royale_Backend.Dominio.InterfacesLN
             string correoRemitente
         );
 
+        Task EnviarVerificacionEmailAsync(
+            string correoDestino,
+            string nombre,
+            string codigo,
+            string correoRemitente
+        );
+
     }
 
 }

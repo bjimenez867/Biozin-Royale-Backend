@@ -27,7 +27,8 @@ internal static class PerfilMapper
             Role = "user",
             IsGuest = perfil.IsGuest,
             Token = token,
-            CamposPendientes = camposPendientes
+            CamposPendientes = camposPendientes,
+            MustVerifyEmail = !perfil.IsGuest && !perfil.EmailVerified,
         };
     }
 }

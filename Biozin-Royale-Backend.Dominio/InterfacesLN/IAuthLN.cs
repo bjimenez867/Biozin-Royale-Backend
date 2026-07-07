@@ -11,4 +11,6 @@ public interface IAuthLN
     Task<Response<TPerfilResultado>> ReclamarInvitadoAsync(Guid userId, TRegistroManual datos);
     Task<Response<bool>> SolicitarRecuperacionAsync(string email);
     Task<Response<bool>> RestablecerPasswordAsync(string email, string code, string newPassword);
+    Task<Response<bool>> EnviarVerificacionAsync(string email);
+    Task<Response<bool>> VerificarEmailAsync(string email, string code);
 }

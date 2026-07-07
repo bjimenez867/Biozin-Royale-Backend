@@ -18,6 +18,7 @@ public class TPerfilResultado
     public string? TempPassword { get; set; }
 
     public bool MustChangePassword { get; set; }
+    public bool MustVerifyEmail { get; set; }
 
     public DateTime? CreatedAt { get; set; }
     public string? CreatedByName { get; set; }

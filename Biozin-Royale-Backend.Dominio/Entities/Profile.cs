@@ -18,4 +18,7 @@ public class Profile
     public string? Password { get; set; }
     public string? ResetCode { get; set; }
     public DateTime? ResetCodeExpiresAt { get; set; }
-    }
+    public bool EmailVerified { get; set; } = false;
+    public string? VerifyCode { get; set; }
+    public DateTime? VerifyCodeExpiresAt { get; set; }
+}

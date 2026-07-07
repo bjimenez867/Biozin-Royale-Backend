@@ -39,6 +39,9 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.Password).HasColumnName("password");
                 entity.Property(p => p.ResetCode).HasColumnName("reset_code");
                 entity.Property(p => p.ResetCodeExpiresAt).HasColumnName("reset_code_expires_at");
+                entity.Property(p => p.EmailVerified).HasColumnName("email_verified");
+                entity.Property(p => p.VerifyCode).HasColumnName("verify_code");
+                entity.Property(p => p.VerifyCodeExpiresAt).HasColumnName("verify_code_expires_at");
                 entity.HasIndex(p => p.UserId).IsUnique();
                 entity.HasIndex(p => p.Username).IsUnique();
             });
