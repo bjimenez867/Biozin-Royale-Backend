@@ -6,6 +6,7 @@ public interface IUnitWork : IDisposable
 {
     IRepositoryAD<Profile> Profiles { get; }
     IRepositoryAD<Wallet> Wallets { get; }
+    IRepositoryAD<WalletTransaction> WalletTransactions { get; }
     IRepositoryAD<UserStatistics> Statistics { get; }
     IRepositoryAD<GamesHistory> GamesHistory { get; }
     IRepositoryAD<Promotion> Promotions { get; }

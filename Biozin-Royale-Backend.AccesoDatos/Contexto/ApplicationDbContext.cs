@@ -10,6 +10,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
 
         public DbSet<Profile> Profiles => Set<Profile>();
         public DbSet<Wallet> Wallets => Set<Wallet>();
+        public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
         public DbSet<UserStatistics> UserStatistics => Set<UserStatistics>();
         public DbSet<GamesHistory> GamesHistory => Set<GamesHistory>();
         public DbSet<Promotion> Promotions => Set<Promotion>();
@@ -56,6 +57,23 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(w => w.CreatedAt).HasColumnName("created_at");
                 entity.Property(w => w.UpdatedAt).HasColumnName("updated_at");
                 entity.HasIndex(w => w.UserId).IsUnique();
+            });
+
+            modelBuilder.Entity<WalletTransaction>(entity =>
+            {
+                entity.ToTable("wallet_transactions");
+                entity.HasKey(t => t.Id);
+                entity.Property(t => t.Id).HasColumnName("id");
+                entity.Property(t => t.WalletId).HasColumnName("wallet_id");
+                entity.Property(t => t.TransactionType).HasColumnName("transaction_type");
+                entity.Property(t => t.Status).HasColumnName("status");
+                entity.Property(t => t.Amount).HasColumnName("amount").HasPrecision(18, 2);
+                entity.Property(t => t.BalanceBefore).HasColumnName("balance_before").HasPrecision(18, 2);
+                entity.Property(t => t.BalanceAfter).HasColumnName("balance_after").HasPrecision(18, 2);
+                entity.Property(t => t.ReferenceType).HasColumnName("reference_type");
+                entity.Property(t => t.ReferenceId).HasColumnName("reference_id");
+                entity.Property(t => t.Metadata).HasColumnName("metadata").HasColumnType("jsonb");
+                entity.Property(t => t.CreatedAt).HasColumnName("created_at");
             });
 
             modelBuilder.Entity<UserStatistics>(entity =>

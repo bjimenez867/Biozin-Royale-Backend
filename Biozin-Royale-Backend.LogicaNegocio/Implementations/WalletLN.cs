@@ -1,5 +1,6 @@
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
+using Biozin_Royale_Backend.Dominio.TypedEntities;
 using Biozin_Royale_Backend.Utilidades;
 
 namespace Biozin_Royale_Backend.LogicaNegocio.Implementations;
@@ -51,6 +52,38 @@ public class WalletLN : IWalletLN
         _unitOfWork.Completar();
 
         resultado.ReturnValue = wallet.Balance;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<IEnumerable<TWalletTransaccionResultado>>> GetTransactionsAsync(Guid userId)
+    {
+        var resultado = new Response<IEnumerable<TWalletTransaccionResultado>>();
+
+        var wallet = _unitOfWork.Wallets.ObtenerEntidad(w => w.UserId == userId).ReturnValue;
+        if (wallet is null)
+        {
+            resultado.lpError("Wallet", "Billetera no encontrada.");
+            return Task.FromResult(resultado);
+        }
+
+        var movimientos = _unitOfWork.WalletTransactions
+            .ObtenerEntidades(t => t.WalletId == wallet.Id
+                && (t.TransactionType == "deposit" || t.TransactionType == "withdrawal"))
+            .ReturnValue!
+            .OrderByDescending(t => t.CreatedAt);
+
+        resultado.ReturnValue = movimientos.Select(t => new TWalletTransaccionResultado
+        {
+            Id = t.Id,
+            TransactionType = t.TransactionType,
+            Status = t.Status,
+            Amount = t.Amount,
+            BalanceBefore = t.BalanceBefore,
+            BalanceAfter = t.BalanceAfter,
+            ReferenceType = t.ReferenceType,
+            CreatedAt = t.CreatedAt
+        });
+
         return Task.FromResult(resultado);
     }
 }

@@ -11,6 +11,7 @@ public class UnitWorkEF : IUnitWork
 
     public IRepositoryAD<Profile> Profiles { get; }
     public IRepositoryAD<Wallet> Wallets { get; }
+    public IRepositoryAD<WalletTransaction> WalletTransactions { get; }
     public IRepositoryAD<UserStatistics> Statistics { get; }
     public IRepositoryAD<GamesHistory> GamesHistory { get; }
     public IRepositoryAD<Promotion> Promotions { get; }
@@ -23,6 +24,7 @@ public class UnitWorkEF : IUnitWork
         _contexto = contexto;
         Profiles = new RepositoryAD<Profile>(contexto);
         Wallets = new RepositoryAD<Wallet>(contexto);
+        WalletTransactions = new RepositoryAD<WalletTransaction>(contexto);
         Statistics = new RepositoryAD<UserStatistics>(contexto);
         GamesHistory = new RepositoryAD<GamesHistory>(contexto);
         Promotions = new RepositoryAD<Promotion>(contexto);
