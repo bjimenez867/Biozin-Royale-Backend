@@ -43,6 +43,14 @@ public class WalletController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [Authorize(Roles = "admin")]
+    [HttpGet("admin/{userId:guid}/transactions")]
+    public async Task<IActionResult> GetTransactionsByUser(Guid userId)
+    {
+        var resultado = await _walletLn.GetTransactionsAsync(userId);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var sub = User.FindFirst("sub")?.Value;
