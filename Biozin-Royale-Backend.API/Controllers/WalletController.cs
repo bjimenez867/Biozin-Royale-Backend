@@ -51,6 +51,22 @@ public class WalletController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [Authorize(Roles = "admin")]
+    [HttpGet("admin/summary")]
+    public async Task<IActionResult> GetAdminSummary()
+    {
+        var resultado = await _walletLn.GetAdminSummaryAsync();
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    [Authorize(Roles = "admin")]
+    [HttpGet("admin/recent")]
+    public async Task<IActionResult> GetAdminRecent([FromQuery] int limit = 50)
+    {
+        var resultado = await _walletLn.GetAdminRecentTransactionsAsync(limit);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var sub = User.FindFirst("sub")?.Value;

@@ -8,4 +8,6 @@ public interface IWalletLN
     Task<Response<decimal>> GetBalanceAsync(Guid userId);
     Task<Response<decimal>> UpdateBalanceAsync(Guid userId, decimal newBalance);
     Task<Response<IEnumerable<TWalletTransaccionResultado>>> GetTransactionsAsync(Guid userId);
+    Task<Response<TFinanzasSummaryResultado>> GetAdminSummaryAsync();
+    Task<Response<IEnumerable<TFinanzasTransaccionResultado>>> GetAdminRecentTransactionsAsync(int limit = 50);
 }
