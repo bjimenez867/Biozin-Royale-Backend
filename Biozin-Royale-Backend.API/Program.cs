@@ -2,12 +2,15 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using QuestPDF.Infrastructure;
 using Biozin_Royale_Backend.AccesoDatos.Contexto;
 using Biozin_Royale_Backend.AccesoDatos.Repositories.Implementaciones;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
 using Biozin_Royale_Backend.LogicaNegocio.Implementations;
 using Biozin_Royale_Backend.API.Auth;
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +26,7 @@ builder.Services.AddScoped<IGamesHistoryLN, GamesHistoryLN>();
 builder.Services.AddScoped<IWalletLN, WalletLN>();
 builder.Services.AddScoped<IBetsLN, BetsLN>();
 builder.Services.AddScoped<IPromotionLN, PromotionLN>();
+builder.Services.AddScoped<IReportesLN, ReportesLN>();
 
 builder.Services.AddHttpClient("OddsApi", client =>
 {
