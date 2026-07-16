@@ -194,7 +194,7 @@ public class PromotionLN : IPromotionLN
         var resultado = new Response<List<TPromotion>>();
 
         var promos = _unitOfWork.Promotions
-            .ObtenerEntidades(p => p.IsActive)
+            .ObtenerEntidades(p => p.IsActive && (p.EndsAt == null || p.EndsAt > DateTime.UtcNow))
             .ReturnValue ?? [];
 
         var reclamadas = _unitOfWork.PromotionClaims
@@ -243,6 +243,12 @@ public class PromotionLN : IPromotionLN
         if (!isPendingGrant && !promo.IsActive)
         {
             resultado.lpError("No disponible", "Esta promoción no está disponible.");
+            return Task.FromResult(resultado);
+        }
+
+        if (promo.EndsAt is not null && promo.EndsAt <= DateTime.UtcNow)
+        {
+            resultado.lpError("Bono expirado", "Esta promoción ya expiró.");
             return Task.FromResult(resultado);
         }
 
