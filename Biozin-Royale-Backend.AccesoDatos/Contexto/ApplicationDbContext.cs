@@ -72,7 +72,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(t => t.BalanceAfter).HasColumnName("balance_after").HasPrecision(18, 2);
                 entity.Property(t => t.ReferenceType).HasColumnName("reference_type");
                 entity.Property(t => t.ReferenceId).HasColumnName("reference_id");
-                entity.Property(t => t.Metadata).HasColumnName("metadata").HasColumnType("jsonb");
+                entity.Property(t => t.Metadata).HasColumnName("metadata").HasColumnType("text");
                 entity.Property(t => t.CreatedAt).HasColumnName("created_at");
             });
 
