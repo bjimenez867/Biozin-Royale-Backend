@@ -12,6 +12,7 @@ public class TPerfilResultado
     public string Status { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public bool IsGuest { get; set; }
+    public bool HasPassword { get; set; }
     public string? Token { get; set; }
     public List<string> CamposPendientes { get; set; } = new();
 
