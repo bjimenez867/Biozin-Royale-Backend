@@ -17,6 +17,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<PromotionClaim> PromotionClaims => Set<PromotionClaim>();
         public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
         public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
+        public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -161,6 +162,26 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(b => b.UnblockedAt).HasColumnName("unblocked_at");
                 entity.Property(b => b.UnblockedBy).HasColumnName("unblocked_by");
                 entity.Property(b => b.IsActive).HasColumnName("is_active");
+            });
+
+            modelBuilder.Entity<PaymentMethod>(entity =>
+            {
+                entity.ToTable("payment_methods");
+                entity.HasKey(m => m.Id);
+                entity.Property(m => m.Id).HasColumnName("id");
+                entity.Property(m => m.WalletId).HasColumnName("wallet_id");
+                entity.Property(m => m.Type).HasColumnName("type");
+                entity.Property(m => m.Alias).HasColumnName("alias");
+                entity.Property(m => m.IsDefault).HasColumnName("is_default");
+                entity.Property(m => m.CreatedAt).HasColumnName("created_at");
+                entity.Property(m => m.UpdatedAt).HasColumnName("updated_at");
+                entity.Property(m => m.Email).HasColumnName("email");
+                entity.Property(m => m.CardHolder).HasColumnName("card_holder");
+                entity.Property(m => m.LastFour).HasColumnName("last_four");
+                entity.Property(m => m.Network).HasColumnName("network");
+                entity.Property(m => m.ExpiryMonth).HasColumnName("expiry_month");
+                entity.Property(m => m.ExpiryYear).HasColumnName("expiry_year");
+                entity.HasIndex(m => m.WalletId);
             });
         }
     }

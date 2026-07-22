@@ -13,6 +13,7 @@ public interface IUnitWork : IDisposable
     IRepositoryAD<PromotionClaim> PromotionClaims { get; }
     IRepositoryAD<StaffMember> StaffMembers { get; }
     IRepositoryAD<UserBlock> UserBlocks { get; }
+    IRepositoryAD<PaymentMethod> PaymentMethods { get; }
     int Completar();
     Task InsertarUsuarioAuthAsync(Guid id, string email);
     Task<bool> ExisteUsuarioAuthAsync(string email);
