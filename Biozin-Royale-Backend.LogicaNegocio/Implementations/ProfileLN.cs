@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
@@ -93,6 +94,114 @@ public class ProfileLN : IProfileLN
         }
 
         perfil.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
+    private static readonly Regex PinFormato = new(@"^\d{4}$");
+
+    public Task<Response<bool>> CrearPinAsync(Guid userId, string pin)
+    {
+        var resultado = new Response<bool>();
+
+        if (!PinFormato.IsMatch(pin ?? string.Empty))
+        {
+            resultado.lpError("PIN inválido", "El PIN debe tener exactamente 4 dígitos.");
+            return Task.FromResult(resultado);
+        }
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
+            return Task.FromResult(resultado);
+        }
+
+        if (!string.IsNullOrEmpty(perfil.PinHash))
+        {
+            resultado.lpError("PIN ya configurado", "Ya tienes un PIN configurado. Usa la opción de cambiar PIN.");
+            return Task.FromResult(resultado);
+        }
+
+        perfil.PinHash = BCrypt.Net.BCrypt.HashPassword(pin);
+        perfil.PinEnabled = true;
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<bool>> CambiarPinAsync(Guid userId, string oldPin, string newPin)
+    {
+        var resultado = new Response<bool>();
+
+        if (!PinFormato.IsMatch(newPin ?? string.Empty))
+        {
+            resultado.lpError("PIN inválido", "El nuevo PIN debe tener exactamente 4 dígitos.");
+            return Task.FromResult(resultado);
+        }
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
+            return Task.FromResult(resultado);
+        }
+
+        if (string.IsNullOrEmpty(perfil.PinHash))
+        {
+            resultado.lpError("Sin PIN configurado", "Todavía no tienes un PIN configurado.");
+            return Task.FromResult(resultado);
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(oldPin, perfil.PinHash))
+        {
+            resultado.lpError("PIN incorrecto", "El PIN actual es incorrecto.");
+            return Task.FromResult(resultado);
+        }
+
+        perfil.PinHash = BCrypt.Net.BCrypt.HashPassword(newPin);
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<bool>> CambiarEstadoPinAsync(Guid userId, string pin, bool enabled)
+    {
+        var resultado = new Response<bool>();
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
+            return Task.FromResult(resultado);
+        }
+
+        if (string.IsNullOrEmpty(perfil.PinHash))
+        {
+            resultado.lpError("Sin PIN configurado", "Todavía no tienes un PIN configurado.");
+            return Task.FromResult(resultado);
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(pin, perfil.PinHash))
+        {
+            resultado.lpError("PIN incorrecto", "El PIN ingresado es incorrecto.");
+            return Task.FromResult(resultado);
+        }
+
+        perfil.PinEnabled = enabled;
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);

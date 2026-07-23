@@ -43,6 +43,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.EmailVerified).HasColumnName("email_verified");
                 entity.Property(p => p.VerifyCode).HasColumnName("verify_code");
                 entity.Property(p => p.VerifyCodeExpiresAt).HasColumnName("verify_code_expires_at");
+                entity.Property(p => p.PinHash).HasColumnName("pin_hash");
+                entity.Property(p => p.PinEnabled).HasColumnName("pin_enabled");
                 entity.HasIndex(p => p.UserId).IsUnique();
                 entity.HasIndex(p => p.Username).IsUnique();
             });
@@ -101,6 +103,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(b => b.Result).HasColumnName("result");
                 entity.Property(b => b.Status).HasColumnName("status");
                 entity.Property(b => b.CreatedAt).HasColumnName("created_at");
+                entity.Property(b => b.Selections).HasColumnName("selections");
+                entity.Property(b => b.SettledAt).HasColumnName("settled_at");
             });
 
             modelBuilder.Entity<Promotion>(entity =>

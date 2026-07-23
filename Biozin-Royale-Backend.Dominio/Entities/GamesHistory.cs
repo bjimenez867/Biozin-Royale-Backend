@@ -14,4 +14,8 @@ public class GamesHistory
     public string Result { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+
+    /// JSON de List&lt;TBetSelectionDetail&gt;. Solo se usa cuando GameType="sports".
+    public string? Selections { get; set; }
+    public DateTime? SettledAt { get; set; }
 }

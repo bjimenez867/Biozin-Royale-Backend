@@ -14,6 +14,7 @@ public class SportsLN : ISportsLN
     private readonly TimeSpan _ttl = TimeSpan.FromMinutes(30);
 
     private IEnumerable<TSportsMatch>? _cache;
+    private Dictionary<int, TMatchLookup> _lookupCache = new();
     private DateTime _cacheTs = DateTime.MinValue;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
@@ -75,17 +76,31 @@ public class SportsLN : ISportsLN
 
             var results = await Task.WhenAll(tasks);
             var matches = new List<TSportsMatch>();
+            var lookup = new Dictionary<int, TMatchLookup>();
 
             foreach (var (events, cfg) in results)
             {
                 foreach (var ev in events.Take(4))
                 {
                     var match = MapEvent(ev, cfg.Sport, cfg.League);
-                    if (match is not null) matches.Add(match);
+                    if (match is null) continue;
+
+                    matches.Add(match);
+                    lookup[match.Id] = new TMatchLookup
+                    {
+                        ExternalId      = ev.Id,
+                        SportKey        = cfg.Key,
+                        CommenceTimeUtc = ev.CommenceTime,
+                        Sport           = cfg.Sport,
+                        League          = cfg.League,
+                        Team1           = ev.HomeTeam,
+                        Team2           = ev.AwayTeam,
+                    };
                 }
             }
 
             _cache = matches;
+            _lookupCache = lookup;
             _cacheTs = DateTime.UtcNow;
             resultado.ReturnValue = matches;
         }
@@ -99,6 +114,12 @@ public class SportsLN : ISportsLN
         }
 
         return resultado;
+    }
+
+    public async Task<TMatchLookup?> ResolveMatchAsync(int matchId)
+    {
+        await GetMatchesAsync();
+        return _lookupCache.TryGetValue(matchId, out var lookup) ? lookup : null;
     }
 
     private static TSportsMatch? MapEvent(ApiEvent ev, string sport, string league)

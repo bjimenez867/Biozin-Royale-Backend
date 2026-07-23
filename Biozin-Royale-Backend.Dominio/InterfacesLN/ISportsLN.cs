@@ -6,4 +6,5 @@ namespace Biozin_Royale_Backend.Dominio.InterfacesLN;
 public interface ISportsLN
 {
     Task<Response<IEnumerable<TSportsMatch>>> GetMatchesAsync();
+    Task<TMatchLookup?> ResolveMatchAsync(int matchId);
 }

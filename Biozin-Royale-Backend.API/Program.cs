@@ -34,6 +34,7 @@ builder.Services.AddHttpClient("OddsApi", client =>
     client.Timeout = TimeSpan.FromSeconds(10);
 });
 builder.Services.AddSingleton<ISportsLN, SportsLN>();
+builder.Services.AddHostedService<Biozin_Royale_Backend.API.BetSettlementService>();
 
 var supabaseUrl = builder.Configuration["Supabase:Url"]!;
 var supabaseIssuer = $"{supabaseUrl}/auth/v1";

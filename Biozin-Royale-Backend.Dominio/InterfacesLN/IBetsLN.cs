@@ -6,4 +6,5 @@ namespace Biozin_Royale_Backend.Dominio.InterfacesLN;
 public interface IBetsLN
 {
     Task<Response<TBetResult>> PlaceBetAsync(Guid userId, TPlaceBetRequest request);
+    Task<Response<IEnumerable<TMyBet>>> GetMyBetsAsync(Guid userId);
 }

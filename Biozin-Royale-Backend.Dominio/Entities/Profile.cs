@@ -21,4 +21,6 @@ public class Profile
     public bool EmailVerified { get; set; } = false;
     public string? VerifyCode { get; set; }
     public DateTime? VerifyCodeExpiresAt { get; set; }
+    public string? PinHash { get; set; }
+    public bool PinEnabled { get; set; } = false;
 }

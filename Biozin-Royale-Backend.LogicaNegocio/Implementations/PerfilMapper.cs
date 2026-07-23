@@ -27,6 +27,8 @@ internal static class PerfilMapper
             Role = "user",
             IsGuest = perfil.IsGuest,
             HasPassword = !string.IsNullOrEmpty(perfil.Password),
+            HasPin = !string.IsNullOrEmpty(perfil.PinHash),
+            PinEnabled = perfil.PinEnabled,
             Token = token,
             CamposPendientes = camposPendientes,
             MustVerifyEmail = !perfil.IsGuest && !perfil.EmailVerified,

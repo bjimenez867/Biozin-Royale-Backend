@@ -26,6 +26,15 @@ public class BetsController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [HttpGet("mine")]
+    public async Task<IActionResult> GetMyBets()
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var resultado = await _betsLn.GetMyBetsAsync(userId);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var sub = User.FindFirst("sub")?.Value;

@@ -55,6 +55,33 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [HttpPost("pin")]
+    public async Task<IActionResult> CrearPin([FromBody] TCrearPin datos)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var resultado = await _profileLN.CrearPinAsync(userId, datos.Pin);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    [HttpPut("pin")]
+    public async Task<IActionResult> CambiarPin([FromBody] TCambiarPin datos)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var resultado = await _profileLN.CambiarPinAsync(userId, datos.OldPin, datos.NewPin);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    [HttpPut("pin/estado")]
+    public async Task<IActionResult> CambiarEstadoPin([FromBody] TCambiarEstadoPin datos)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var resultado = await _profileLN.CambiarEstadoPinAsync(userId, datos.Pin, datos.Enabled);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var sub = User.FindFirst("sub")?.Value;

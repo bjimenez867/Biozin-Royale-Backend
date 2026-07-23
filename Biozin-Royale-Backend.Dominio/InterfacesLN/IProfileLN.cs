@@ -8,6 +8,9 @@ public interface IProfileLN
     Task<Response<TPerfilResultado>> ObtenerPerfilAsync(Guid userId);
     Task<Response<TPerfilResultado>> ActualizarPerfilAsync(Guid userId, TActualizarPerfil datos);
     Task<Response<bool>> CambiarPasswordAsync(Guid userId, string oldPassword, string newPassword);
+    Task<Response<bool>> CrearPinAsync(Guid userId, string pin);
+    Task<Response<bool>> CambiarPinAsync(Guid userId, string oldPin, string newPin);
+    Task<Response<bool>> CambiarEstadoPinAsync(Guid userId, string pin, bool enabled);
     Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId);
     Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId);
     Task<Response<TUserBlockInfo>> ObtenerBloqueoActivoAsync(Guid adminId, Guid userId);
