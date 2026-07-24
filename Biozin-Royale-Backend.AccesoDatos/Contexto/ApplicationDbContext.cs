@@ -45,6 +45,9 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.VerifyCodeExpiresAt).HasColumnName("verify_code_expires_at");
                 entity.Property(p => p.PinHash).HasColumnName("pin_hash");
                 entity.Property(p => p.PinEnabled).HasColumnName("pin_enabled");
+                entity.Property(p => p.TwoFactorEnabled).HasColumnName("two_factor_enabled");
+                entity.Property(p => p.TwoFactorCode).HasColumnName("two_factor_code");
+                entity.Property(p => p.TwoFactorCodeExpiresAt).HasColumnName("two_factor_code_expires_at");
                 entity.HasIndex(p => p.UserId).IsUnique();
                 entity.HasIndex(p => p.Username).IsUnique();
             });

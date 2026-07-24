@@ -23,4 +23,7 @@ public class Profile
     public DateTime? VerifyCodeExpiresAt { get; set; }
     public string? PinHash { get; set; }
     public bool PinEnabled { get; set; } = false;
+    public bool TwoFactorEnabled { get; set; } = false;
+    public string? TwoFactorCode { get; set; }
+    public DateTime? TwoFactorCodeExpiresAt { get; set; }
 }

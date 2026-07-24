@@ -188,5 +188,54 @@ namespace Biozin_Royale_Backend.LogicaNegocio.Implementations
             await smtp.DisconnectAsync(true, cts.Token);
         }
 
+        public async Task EnviarCodigo2FAAsync(
+            string correoDestino,
+            string nombre,
+            string codigo,
+            string correoRemitente)
+        {
+            var mensaje = new MimeMessage();
+            mensaje.From.Add(new MailboxAddress("Biozin Royale", correoRemitente));
+            mensaje.To.Add(MailboxAddress.Parse(correoDestino));
+            mensaje.Subject = "Código de acceso – Biozin Royale";
+
+            var builder = new BodyBuilder();
+
+            string ruta = Path.Combine(Directory.GetCurrentDirectory(), "EmailTemplates", "TwoFactorLogin.html");
+            string html = File.ReadAllText(ruta);
+
+            var rutaLogo = Path.Combine(Directory.GetCurrentDirectory(), "EmailTemplates", "Biozin_logo.png");
+            if (File.Exists(rutaLogo))
+            {
+                var imagen = builder.LinkedResources.Add(rutaLogo);
+                imagen.ContentId = "logo-biozin";
+                html = html.Replace("{logoUrl}", $"cid:{imagen.ContentId}");
+            }
+            else
+            {
+                html = html.Replace("{logoUrl}", string.Empty);
+            }
+
+            html = html.Replace("{nombre}", nombre);
+            html = html.Replace("{codigo}", codigo);
+            html = html.Replace("{anio}", DateTime.Now.Year.ToString());
+
+            builder.HtmlBody = html;
+            mensaje.Body = builder.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+
+            await smtp.ConnectAsync(
+                _config["Mail:Smtp"]!,
+                (int.TryParse(_config["Mail:Puerto"], out var smtpPuerto) ? smtpPuerto : 587),
+                MailKit.Security.SecureSocketOptions.StartTls,
+                cts.Token
+            );
+            await smtp.AuthenticateAsync(_config["Mail:Usuario"]!, _config["Mail:Password"]!, cts.Token);
+            await smtp.SendAsync(mensaje, cts.Token);
+            await smtp.DisconnectAsync(true, cts.Token);
+        }
+
     }
 }

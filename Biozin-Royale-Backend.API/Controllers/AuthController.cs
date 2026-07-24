@@ -103,6 +103,22 @@ public class AuthController : ControllerBase
         return Ok(resultado);
     }
 
+    [AllowAnonymous]
+    [HttpPost("verify-2fa")]
+    public async Task<IActionResult> VerifyTwoFactor([FromBody] TVerificarCodigo2FA datos)
+    {
+        var resultado = await _authLN.VerificarCodigo2FAAsync(datos.Email, datos.Code);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("resend-2fa")]
+    public async Task<IActionResult> ResendTwoFactor([FromBody] TReenviarCodigo2FA datos)
+    {
+        var resultado = await _authLN.ReenviarCodigo2FAAsync(datos.Email);
+        return Ok(resultado);
+    }
+
     private static string? ExtraerNombreCompleto(string? userMetadataJson)
     {
         if (string.IsNullOrWhiteSpace(userMetadataJson)) return null;

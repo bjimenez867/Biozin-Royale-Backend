@@ -28,6 +28,13 @@ namespace Biozin_Royale_Backend.Dominio.InterfacesLN
             string correoRemitente
         );
 
+        Task EnviarCodigo2FAAsync(
+            string correoDestino,
+            string nombre,
+            string codigo,
+            string correoRemitente
+        );
+
     }
 
 }

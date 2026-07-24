@@ -211,6 +211,38 @@ public class ProfileLN : IProfileLN
         return Task.FromResult(resultado);
     }
 
+    public Task<Response<bool>> CambiarEstadoTwoFactorAsync(Guid userId, string password, bool enabled)
+    {
+        var resultado = new Response<bool>();
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
+            return Task.FromResult(resultado);
+        }
+
+        // Las cuentas de Google no tienen contraseña propia, así que no hay nada que
+        // verificar contra ellas: se permite el cambio directo. Las cuentas con
+        // contraseña sí deben confirmarla, igual que para PIN.
+        if (!string.IsNullOrEmpty(perfil.Password) && !BCrypt.Net.BCrypt.Verify(password, perfil.Password))
+        {
+            resultado.lpError("Contraseña incorrecta", "La contraseña ingresada es incorrecta.");
+            return Task.FromResult(resultado);
+        }
+
+        perfil.TwoFactorEnabled = enabled;
+        perfil.TwoFactorCode = null;
+        perfil.TwoFactorCodeExpiresAt = null;
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
     public Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId)
     {
         var resultado = new Response<List<TAdminUser>>();

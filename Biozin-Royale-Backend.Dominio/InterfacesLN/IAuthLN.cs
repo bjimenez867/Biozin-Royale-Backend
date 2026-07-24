@@ -13,4 +13,6 @@ public interface IAuthLN
     Task<Response<bool>> RestablecerPasswordAsync(string email, string code, string newPassword);
     Task<Response<bool>> EnviarVerificacionAsync(string email);
     Task<Response<bool>> VerificarEmailAsync(string email, string code);
+    Task<Response<TPerfilResultado>> VerificarCodigo2FAAsync(string email, string code);
+    Task<Response<bool>> ReenviarCodigo2FAAsync(string email);
 }

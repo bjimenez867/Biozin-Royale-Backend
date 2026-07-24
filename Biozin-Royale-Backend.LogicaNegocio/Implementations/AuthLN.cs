@@ -145,7 +145,94 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
+        if (perfil.TwoFactorEnabled)
+        {
+            await GenerarYEnviarCodigo2FAAsync(perfil);
+            resultado.lpError("2FA requerido", "Te enviamos un código de verificación a tu correo.");
+            return resultado;
+        }
+
         resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
+        return resultado;
+    }
+
+    private async Task GenerarYEnviarCodigo2FAAsync(Profile perfil)
+    {
+        var remitente = _configuration["Mail:Remitente"] ?? "no-reply@biozinroyale.com";
+
+        var codigo = Random.Shared.Next(100_000, 1_000_000).ToString();
+        perfil.TwoFactorCode = BCrypt.Net.BCrypt.HashPassword(codigo);
+        perfil.TwoFactorCodeExpiresAt = DateTime.UtcNow.AddMinutes(10);
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        try
+        {
+            await _emailService.EnviarCodigo2FAAsync(
+                correoDestino: perfil.Email,
+                nombre: perfil.DisplayName ?? perfil.Username,
+                codigo: codigo,
+                correoRemitente: remitente
+            );
+            Console.WriteLine($"[2FA] Código enviado a {perfil.Email}.");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[2FA] Error enviando correo a {perfil.Email}: {ex.GetType().Name} — {ex.Message}");
+        }
+    }
+
+    public async Task<Response<TPerfilResultado>> VerificarCodigo2FAAsync(string email, string code)
+    {
+        var resultado = new Response<TPerfilResultado>();
+        var emailNorm = email.Trim().ToLowerInvariant();
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+
+        if (perfil is null || string.IsNullOrEmpty(perfil.TwoFactorCode) || perfil.TwoFactorCodeExpiresAt is null)
+        {
+            resultado.lpError("Código inválido", "El código no es válido o ya fue usado.");
+            return resultado;
+        }
+
+        if (DateTime.UtcNow > perfil.TwoFactorCodeExpiresAt)
+        {
+            resultado.lpError("Código expirado", "El código de verificación ha expirado. Solicita uno nuevo.");
+            return resultado;
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(code.Trim(), perfil.TwoFactorCode))
+        {
+            resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
+            return resultado;
+        }
+
+        perfil.TwoFactorCode = null;
+        perfil.TwoFactorCodeExpiresAt = null;
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
+        return resultado;
+    }
+
+    public async Task<Response<bool>> ReenviarCodigo2FAAsync(string email)
+    {
+        var resultado = new Response<bool>();
+        var emailNorm = email.Trim().ToLowerInvariant();
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+        if (perfil is not null && perfil.TwoFactorEnabled)
+        {
+            await GenerarYEnviarCodigo2FAAsync(perfil);
+        }
+
+        // No revela si el correo existe o si tiene 2FA activo, igual que SolicitarRecuperacionAsync
+        resultado.ReturnValue = true;
         return resultado;
     }
 

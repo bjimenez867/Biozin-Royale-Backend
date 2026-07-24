@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificación en dos pasos – Biozin Royale</title>
+</head>
+
+<body style="margin:0; padding:0; background-color:#050505; font-family:Arial, Helvetica, sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#050505; padding:30px 12px;">
+    <tr>
+        <td align="center">
+
+            <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background:#0B0B0B; border:1px solid #B8860B; border-radius:18px; overflow:hidden; box-shadow:0 0 30px rgba(212,175,55,0.18);">
+
+                <!-- HEADER -->
+                <tr>
+                    <td style="background:linear-gradient(135deg,#050505,#111111,#1A1A1A); padding:34px 26px; text-align:center; border-bottom:1px solid #B8860B;">
+                        <img src="{logoUrl}" alt="Biozin Royale" width="260" style="display:block; margin:0 auto; max-width:260px;">
+                        <div style="width:100px; height:1px; background:#D4AF37; margin:16px auto 0 auto;"></div>
+                    </td>
+                </tr>
+
+                <!-- CONTENIDO -->
+                <tr>
+                    <td style="padding:36px 32px; color:#F5F5F5;">
+
+                        <h2 style="margin:0 0 12px 0; color:#D4AF37; font-size:22px; font-weight:bold; text-align:center;">
+                            Verificación en dos pasos
+                        </h2>
+
+                        <p style="margin:0 0 28px 0; color:#CFCFCF; font-size:15px; line-height:1.7; text-align:center;">
+                            Hola, <b style="color:#F5D77A;">{nombre}</b>.<br>
+                            Detectamos un inicio de sesión en tu cuenta.<br>
+                            Usa el código a continuación para completarlo. Expira en <b style="color:#F5D77A;">10 minutos</b>.
+                        </p>
+
+                        <!-- CÓDIGO -->
+                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                            <tr>
+                                <td align="center">
+                                    <div style="display:inline-block; background:#111111; border:2px solid #D4AF37; border-radius:16px; padding:22px 40px;">
+                                        <p style="margin:0 0 6px 0; color:#D4AF37; font-size:11px; text-transform:uppercase; letter-spacing:3px; font-weight:bold;">
+                                            Código de acceso
+                                        </p>
+                                        <p style="margin:0; color:#F5D77A; font-size:42px; font-weight:bold; letter-spacing:10px; font-family:'Courier New', monospace;">
+                                            {codigo}
+                                        </p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <p style="margin:0 0 28px 0; color:#999999; font-size:13px; line-height:1.65; text-align:center;">
+                            Si no fuiste tú quien intentó iniciar sesión, ignora este mensaje y considera cambiar tu contraseña.
+                        </p>
+
+                        <!-- AVISO DE SEGURIDAD -->
+                        <table width="100%" cellpadding="0" cellspacing="0" style="background:#111111; border:1px solid rgba(212,175,55,0.3); border-radius:12px;">
+                            <tr>
+                                <td style="padding:14px 18px;">
+                                    <p style="margin:0; color:#B8860B; font-size:12px; text-transform:uppercase; letter-spacing:1px; font-weight:bold;">
+                                        ⚠ Aviso de seguridad
+                                    </p>
+                                    <p style="margin:6px 0 0 0; color:#999999; font-size:13px; line-height:1.6;">
+                                        Nunca compartas este código con nadie. Biozin Royale jamás te lo pedirá por teléfono o chat.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+
+                    </td>
+                </tr>
+
+                <!-- FOOTER -->
+                <tr>
+                    <td style="padding:20px 32px; text-align:center; border-top:1px solid rgba(184,134,11,0.3);">
+                        <p style="margin:0; color:#555555; font-size:12px; line-height:1.6;">
+                            © {anio} Biozin Royale · Todos los derechos reservados
+                        </p>
+                    </td>
+                </tr>
+
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

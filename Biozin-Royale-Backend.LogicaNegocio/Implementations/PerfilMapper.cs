@@ -29,6 +29,7 @@ internal static class PerfilMapper
             HasPassword = !string.IsNullOrEmpty(perfil.Password),
             HasPin = !string.IsNullOrEmpty(perfil.PinHash),
             PinEnabled = perfil.PinEnabled,
+            TwoFactorEnabled = perfil.TwoFactorEnabled,
             Token = token,
             CamposPendientes = camposPendientes,
             MustVerifyEmail = !perfil.IsGuest && !perfil.EmailVerified,

@@ -82,6 +82,15 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [HttpPut("2fa/estado")]
+    public async Task<IActionResult> CambiarEstadoTwoFactor([FromBody] TCambiarEstadoTwoFactor datos)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var resultado = await _profileLN.CambiarEstadoTwoFactorAsync(userId, datos.Password, datos.Enabled);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var sub = User.FindFirst("sub")?.Value;

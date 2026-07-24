@@ -11,6 +11,7 @@ public interface IProfileLN
     Task<Response<bool>> CrearPinAsync(Guid userId, string pin);
     Task<Response<bool>> CambiarPinAsync(Guid userId, string oldPin, string newPin);
     Task<Response<bool>> CambiarEstadoPinAsync(Guid userId, string pin, bool enabled);
+    Task<Response<bool>> CambiarEstadoTwoFactorAsync(Guid userId, string password, bool enabled);
     Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId);
     Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId);
     Task<Response<TUserBlockInfo>> ObtenerBloqueoActivoAsync(Guid adminId, Guid userId);
