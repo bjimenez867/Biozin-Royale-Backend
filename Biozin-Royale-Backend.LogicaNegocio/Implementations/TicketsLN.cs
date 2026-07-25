@@ -330,7 +330,7 @@ public class TicketsLN : ITicketsLN
         var resultado = new Response<IEnumerable<TStaffSimple>>();
 
         var staff = _unitOfWork.StaffMembers
-            .ObtenerEntidades(s => s.Status == "active")
+            .ObtenerEntidades(s => s.Status == "active" && s.Role == "soporte")
             .ReturnValue?
             .Select(s => new TStaffSimple { Id = s.Id, DisplayName = s.DisplayName, Role = s.Role })
             ?? Enumerable.Empty<TStaffSimple>();
