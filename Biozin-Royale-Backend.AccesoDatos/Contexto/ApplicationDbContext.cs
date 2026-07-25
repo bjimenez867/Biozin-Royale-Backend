@@ -19,6 +19,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
         public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
         public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
+        public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -139,6 +140,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(s => s.Email).HasColumnName("email");
                 entity.Property(s => s.Phone).HasColumnName("phone");
                 entity.Property(s => s.PasswordHash).HasColumnName("password_hash");
+                entity.Property(s => s.Role).HasColumnName("role");
                 entity.Property(s => s.Status).HasColumnName("status");
                 entity.Property(s => s.MustChangePassword).HasColumnName("must_change_password");
                 entity.Property(s => s.ResetCode).HasColumnName("reset_code");
@@ -180,6 +182,20 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(t => t.AssignedTo).HasColumnName("assigned_to");
                 entity.Property(t => t.CreatedAt).HasColumnName("created_at");
                 entity.Property(t => t.UpdatedAt).HasColumnName("updated_at");
+            });
+
+            modelBuilder.Entity<TicketMessage>(entity =>
+            {
+                entity.ToTable("ticket_messages");
+                entity.HasKey(m => m.Id);
+                entity.Property(m => m.Id).HasColumnName("id");
+                entity.Property(m => m.TicketId).HasColumnName("ticket_id");
+                entity.Property(m => m.SenderId).HasColumnName("sender_id");
+                entity.Property(m => m.SenderRole).HasColumnName("sender_role");
+                entity.Property(m => m.SenderName).HasColumnName("sender_name");
+                entity.Property(m => m.Body).HasColumnName("body");
+                entity.Property(m => m.CreatedAt).HasColumnName("created_at");
+                entity.HasIndex(m => new { m.TicketId, m.CreatedAt });
             });
 
             modelBuilder.Entity<PaymentMethod>(entity =>
