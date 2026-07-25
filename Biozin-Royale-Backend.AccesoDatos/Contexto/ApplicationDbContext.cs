@@ -18,6 +18,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
         public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
         public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
+        public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -162,6 +163,23 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(b => b.UnblockedAt).HasColumnName("unblocked_at");
                 entity.Property(b => b.UnblockedBy).HasColumnName("unblocked_by");
                 entity.Property(b => b.IsActive).HasColumnName("is_active");
+            });
+
+            modelBuilder.Entity<SupportTicket>(entity =>
+            {
+                entity.ToTable("support_tickets");
+                entity.HasKey(t => t.Id);
+                entity.Property(t => t.Id).HasColumnName("id");
+                entity.Property(t => t.TicketNumber).HasColumnName("ticket_number").ValueGeneratedOnAdd();
+                entity.Property(t => t.UserId).HasColumnName("user_id");
+                entity.Property(t => t.Subject).HasColumnName("subject");
+                entity.Property(t => t.Category).HasColumnName("category");
+                entity.Property(t => t.Priority).HasColumnName("priority");
+                entity.Property(t => t.Status).HasColumnName("status");
+                entity.Property(t => t.Description).HasColumnName("description");
+                entity.Property(t => t.AssignedTo).HasColumnName("assigned_to");
+                entity.Property(t => t.CreatedAt).HasColumnName("created_at");
+                entity.Property(t => t.UpdatedAt).HasColumnName("updated_at");
             });
 
             modelBuilder.Entity<PaymentMethod>(entity =>

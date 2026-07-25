@@ -14,6 +14,7 @@ public interface IUnitWork : IDisposable
     IRepositoryAD<StaffMember> StaffMembers { get; }
     IRepositoryAD<UserBlock> UserBlocks { get; }
     IRepositoryAD<PaymentMethod> PaymentMethods { get; }
+    IRepositoryAD<SupportTicket> SupportTickets { get; }
     int Completar();
     Task InsertarUsuarioAuthAsync(Guid id, string email);
     Task<bool> ExisteUsuarioAuthAsync(string email);
