@@ -183,11 +183,13 @@ public class TicketsLN : ITicketsLN
             .OrderBy(m => m.CreatedAt)
             .Select(m => new TMessage
             {
-                Id       = m.Id,
+                Id         = m.Id,
                 SenderName = m.SenderName,
                 SenderRole = m.SenderRole,
-                Body     = m.Body,
-                CreatedAt = m.CreatedAt,
+                Body       = m.Body,
+                FileUrl    = m.FileUrl,
+                FileName   = m.FileName,
+                CreatedAt  = m.CreatedAt,
             }) ?? Enumerable.Empty<TMessage>();
 
         resultado.ReturnValue = mensajes;
@@ -240,6 +242,8 @@ public class TicketsLN : ITicketsLN
             SenderRole = senderRole,
             SenderName = senderName,
             Body       = datos.Body.Trim(),
+            FileUrl    = datos.FileUrl,
+            FileName   = datos.FileName,
             CreatedAt  = DateTime.UtcNow,
         };
 
@@ -259,6 +263,8 @@ public class TicketsLN : ITicketsLN
             SenderName = senderName,
             SenderRole = senderRole,
             Body       = mensaje.Body,
+            FileUrl    = mensaje.FileUrl,
+            FileName   = mensaje.FileName,
             CreatedAt  = mensaje.CreatedAt,
         };
 

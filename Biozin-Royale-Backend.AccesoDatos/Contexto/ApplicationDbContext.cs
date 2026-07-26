@@ -194,6 +194,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(m => m.SenderRole).HasColumnName("sender_role");
                 entity.Property(m => m.SenderName).HasColumnName("sender_name");
                 entity.Property(m => m.Body).HasColumnName("body");
+                entity.Property(m => m.FileUrl).HasColumnName("file_url");
+                entity.Property(m => m.FileName).HasColumnName("file_name");
                 entity.Property(m => m.CreatedAt).HasColumnName("created_at");
                 entity.HasIndex(m => new { m.TicketId, m.CreatedAt });
             });
