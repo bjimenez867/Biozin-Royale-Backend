@@ -91,9 +91,49 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [HttpGet("sessions")]
+    public async Task<IActionResult> ObtenerSesiones()
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        TryGetSessionId(out var currentSessionId);
+        var resultado = await _profileLN.ObtenerSesionesAsync(userId, currentSessionId);
+        return resultado.blnError ? NotFound(resultado) : Ok(resultado);
+    }
+
+    [HttpDelete("sessions/{id}")]
+    public async Task<IActionResult> CerrarSesion(Guid id)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var resultado = await _profileLN.CerrarSesionAsync(userId, id);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    [HttpPost("sessions/close-others")]
+    public async Task<IActionResult> CerrarOtrasSesiones()
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+        if (!TryGetSessionId(out var currentSessionId)) return Unauthorized();
+
+        var resultado = await _profileLN.CerrarOtrasSesionesAsync(userId, currentSessionId);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var sub = User.FindFirst("sub")?.Value;
         return Guid.TryParse(sub, out userId);
+    }
+
+    // Tokens propios (login manual/2FA) traen "jti"; los de Supabase (Google) no
+    // traen ese jti pero sí un "session_id" estable — ver AuthLN.SincronizarOAuthAsync.
+    private bool TryGetSessionId(out Guid sessionId)
+    {
+        var jti = User.FindFirst("jti")?.Value;
+        if (Guid.TryParse(jti, out sessionId)) return true;
+
+        var sessionClaim = User.FindFirst("session_id")?.Value;
+        return Guid.TryParse(sessionClaim, out sessionId);
     }
 }

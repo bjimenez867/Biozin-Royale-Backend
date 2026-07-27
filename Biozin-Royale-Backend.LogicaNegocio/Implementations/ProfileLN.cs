@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Caching.Memory;
 using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
@@ -10,10 +11,12 @@ namespace Biozin_Royale_Backend.LogicaNegocio.Implementations;
 public class ProfileLN : IProfileLN
 {
     private readonly IUnitWork _unitOfWork;
+    private readonly IMemoryCache _cache;
 
-    public ProfileLN(IUnitWork unitOfWork)
+    public ProfileLN(IUnitWork unitOfWork, IMemoryCache cache)
     {
         _unitOfWork = unitOfWork;
+        _cache = cache;
     }
 
     public Task<Response<TPerfilResultado>> ObtenerPerfilAsync(Guid userId)
@@ -237,6 +240,92 @@ public class ProfileLN : IProfileLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<List<TSession>>> ObtenerSesionesAsync(Guid userId, Guid? currentSessionId)
+    {
+        var resultado = new Response<List<TSession>>();
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
+            return Task.FromResult(resultado);
+        }
+
+        var sesiones = _unitOfWork.Sessions
+            .ObtenerEntidades(s => s.ProfileId == perfil.Id && s.IsActive).ReturnValue
+            .OrderByDescending(s => s.CreatedAt)
+            .Select(s => new TSession
+            {
+                Id = s.Id,
+                DeviceLabel = s.DeviceLabel,
+                IpAddress = s.IpAddress,
+                CreatedAt = s.CreatedAt,
+                IsCurrent = currentSessionId.HasValue && s.Id == currentSessionId.Value,
+            })
+            .ToList();
+
+        resultado.ReturnValue = sesiones;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<bool>> CerrarSesionAsync(Guid userId, Guid sessionId)
+    {
+        var resultado = new Response<bool>();
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
+            return Task.FromResult(resultado);
+        }
+
+        var sesion = _unitOfWork.Sessions.ObtenerEntidad(s => s.Id == sessionId && s.ProfileId == perfil.Id).ReturnValue;
+        if (sesion is null || !sesion.IsActive)
+        {
+            resultado.lpError("Sesión no encontrada", "Esa sesión ya no está activa.");
+            return Task.FromResult(resultado);
+        }
+
+        sesion.IsActive = false;
+        sesion.RevokedAt = DateTime.UtcNow;
+        _unitOfWork.Sessions.Modificar(sesion);
+        _unitOfWork.Completar();
+
+        _cache.Set(sesion.Id, true, TimeSpan.FromSeconds(30));
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<bool>> CerrarOtrasSesionesAsync(Guid userId, Guid currentSessionId)
+    {
+        var resultado = new Response<bool>();
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
+            return Task.FromResult(resultado);
+        }
+
+        var otras = _unitOfWork.Sessions
+            .ObtenerEntidades(s => s.ProfileId == perfil.Id && s.IsActive && s.Id != currentSessionId).ReturnValue
+            .ToList();
+
+        foreach (var sesion in otras)
+        {
+            sesion.IsActive = false;
+            sesion.RevokedAt = DateTime.UtcNow;
+            _unitOfWork.Sessions.Modificar(sesion);
+            _cache.Set(sesion.Id, true, TimeSpan.FromSeconds(30));
+        }
+
         _unitOfWork.Completar();
 
         resultado.ReturnValue = true;

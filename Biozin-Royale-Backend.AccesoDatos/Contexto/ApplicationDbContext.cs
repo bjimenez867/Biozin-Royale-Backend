@@ -17,6 +17,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<PromotionClaim> PromotionClaims => Set<PromotionClaim>();
         public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
         public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
+        public DbSet<Session> Sessions => Set<Session>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -168,6 +169,20 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(b => b.UnblockedAt).HasColumnName("unblocked_at");
                 entity.Property(b => b.UnblockedBy).HasColumnName("unblocked_by");
                 entity.Property(b => b.IsActive).HasColumnName("is_active");
+            });
+
+            modelBuilder.Entity<Session>(entity =>
+            {
+                entity.ToTable("sessions");
+                entity.HasKey(s => s.Id);
+                entity.Property(s => s.Id).HasColumnName("id");
+                entity.Property(s => s.ProfileId).HasColumnName("profile_id");
+                entity.Property(s => s.DeviceLabel).HasColumnName("device_label");
+                entity.Property(s => s.IpAddress).HasColumnName("ip_address");
+                entity.Property(s => s.CreatedAt).HasColumnName("created_at");
+                entity.Property(s => s.RevokedAt).HasColumnName("revoked_at");
+                entity.Property(s => s.IsActive).HasColumnName("is_active");
+                entity.HasIndex(s => s.ProfileId);
             });
         }
     }

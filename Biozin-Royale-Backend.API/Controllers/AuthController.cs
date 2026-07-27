@@ -29,7 +29,8 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] TLoginManual datos)
     {
-        var resultado = await _authLN.LoginManualAsync(datos.Email, datos.Password);
+        var (userAgent, ip) = ObtenerInfoCliente();
+        var resultado = await _authLN.LoginManualAsync(datos.Email, datos.Password, userAgent, ip);
         return resultado.blnError ? Unauthorized(resultado) : Ok(resultado);
     }
 
@@ -52,7 +53,12 @@ public class AuthController : ControllerBase
 
         var nombreCompleto = ExtraerNombreCompleto(User.FindFirst("user_metadata")?.Value);
 
-        var resultado = await _authLN.SincronizarOAuthAsync(supabaseUserId, email, nombreCompleto, esAnonimo);
+        Guid.TryParse(User.FindFirst("session_id")?.Value, out var sessionId);
+        var (userAgent, ip) = ObtenerInfoCliente();
+
+        var resultado = await _authLN.SincronizarOAuthAsync(
+            supabaseUserId, email, nombreCompleto, esAnonimo,
+            sessionId == Guid.Empty ? null : sessionId, userAgent, ip);
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
@@ -107,7 +113,8 @@ public class AuthController : ControllerBase
     [HttpPost("verify-2fa")]
     public async Task<IActionResult> VerifyTwoFactor([FromBody] TVerificarCodigo2FA datos)
     {
-        var resultado = await _authLN.VerificarCodigo2FAAsync(datos.Email, datos.Code);
+        var (userAgent, ip) = ObtenerInfoCliente();
+        var resultado = await _authLN.VerificarCodigo2FAAsync(datos.Email, datos.Code, userAgent, ip);
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
@@ -117,6 +124,14 @@ public class AuthController : ControllerBase
     {
         var resultado = await _authLN.ReenviarCodigo2FAAsync(datos.Email);
         return Ok(resultado);
+    }
+
+    private (string? userAgent, string? ip) ObtenerInfoCliente()
+    {
+        var userAgent = Request.Headers.UserAgent.ToString();
+        var ip = Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim()
+                 ?? HttpContext.Connection.RemoteIpAddress?.ToString();
+        return (string.IsNullOrWhiteSpace(userAgent) ? null : userAgent, ip);
     }
 
     private static string? ExtraerNombreCompleto(string? userMetadataJson)

@@ -111,7 +111,7 @@ public class AuthLN : IAuthLN
         return resultado;
     }
 
-    public async Task<Response<TPerfilResultado>> LoginManualAsync(string email, string password)
+    public async Task<Response<TPerfilResultado>> LoginManualAsync(string email, string password, string? userAgent, string? ipAddress)
     {
         var resultado = new Response<TPerfilResultado>();
         var emailNormalizado = email.Trim().ToLowerInvariant();
@@ -152,7 +152,7 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarTokenConSesion(perfil, userAgent, ipAddress));
         return resultado;
     }
 
@@ -184,7 +184,7 @@ public class AuthLN : IAuthLN
         }
     }
 
-    public async Task<Response<TPerfilResultado>> VerificarCodigo2FAAsync(string email, string code)
+    public async Task<Response<TPerfilResultado>> VerificarCodigo2FAAsync(string email, string code, string? userAgent, string? ipAddress)
     {
         var resultado = new Response<TPerfilResultado>();
         var emailNorm = email.Trim().ToLowerInvariant();
@@ -216,7 +216,7 @@ public class AuthLN : IAuthLN
         _unitOfWork.Profiles.Modificar(perfil);
         _unitOfWork.Completar();
 
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarToken(perfil));
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarTokenConSesion(perfil, userAgent, ipAddress));
         return resultado;
     }
 
@@ -236,7 +236,7 @@ public class AuthLN : IAuthLN
         return resultado;
     }
 
-    public async Task<Response<TPerfilResultado>> SincronizarOAuthAsync(Guid supabaseUserId, string? email, string? nombreCompleto, bool esAnonimo)
+    public async Task<Response<TPerfilResultado>> SincronizarOAuthAsync(Guid supabaseUserId, string? email, string? nombreCompleto, bool esAnonimo, Guid? sessionId, string? userAgent, string? ipAddress)
     {
         var resultado = new Response<TPerfilResultado>();
 
@@ -289,6 +289,24 @@ public class AuthLN : IAuthLN
 
             _unitOfWork.Profiles.Insertar(perfil);
             _unitOfWork.Wallets.Insertar(wallet);
+            _unitOfWork.Completar();
+        }
+
+        // El JWT lo emite Supabase, no nosotros — a diferencia del login manual, aquí no
+        // hay un jti propio que registrar. Supabase sí incluye un claim "session_id"
+        // estable entre refrescos del mismo login, así que se usa ese como Id de Session
+        // para poder listar/revocar también las sesiones de Google desde "Sesiones activas".
+        if (sessionId.HasValue && _unitOfWork.Sessions.ObtenerEntidad(s => s.Id == sessionId.Value).ReturnValue is null)
+        {
+            _unitOfWork.Sessions.Insertar(new Session
+            {
+                Id = sessionId.Value,
+                ProfileId = perfil.Id,
+                DeviceLabel = DeviceParser.AnalizarUserAgent(userAgent),
+                IpAddress = ipAddress,
+                CreatedAt = DateTime.UtcNow,
+                IsActive = true,
+            });
             _unitOfWork.Completar();
         }
 
@@ -625,8 +643,26 @@ public class AuthLN : IAuthLN
         return Task.FromResult(resultado);
     }
 
-    private string GenerarToken(Profile perfil)
+    // A diferencia de GenerarToken (usado para OAuth/staff, sin sesión rastreable),
+    // este helper es para los dos únicos flujos donde emitimos el JWT nosotros mismos
+    // (login manual y verificación de 2FA): genera un jti propio y lo guarda como
+    // Session para poder revocarlo después desde "Sesiones activas".
+    private string GenerarTokenConSesion(Profile perfil, string? userAgent, string? ipAddress)
     {
-        return JwtTokenFactory.GenerarToken(_configuration, perfil.UserId, perfil.Email, "user");
+        var jti = Guid.NewGuid();
+        var token = JwtTokenFactory.GenerarToken(_configuration, perfil.UserId, perfil.Email, "user", jti);
+
+        _unitOfWork.Sessions.Insertar(new Session
+        {
+            Id = jti,
+            ProfileId = perfil.Id,
+            DeviceLabel = DeviceParser.AnalizarUserAgent(userAgent),
+            IpAddress = ipAddress,
+            CreatedAt = DateTime.UtcNow,
+            IsActive = true,
+        });
+        _unitOfWork.Completar();
+
+        return token;
     }
 }

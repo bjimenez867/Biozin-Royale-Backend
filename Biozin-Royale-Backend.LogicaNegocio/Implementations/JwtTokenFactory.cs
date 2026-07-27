@@ -10,7 +10,7 @@ namespace Biozin_Royale_Backend.LogicaNegocio.Implementations;
 // firman el mismo tipo de JWT local, solo cambian los valores de los claims.
 public static class JwtTokenFactory
 {
-    public static string GenerarToken(IConfiguration configuration, Guid id, string email, string role)
+    public static string GenerarToken(IConfiguration configuration, Guid id, string email, string role, Guid? jti = null)
     {
         var llave = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:LocalSigningKey"]!));
         var credenciales = new SigningCredentials(llave, SecurityAlgorithms.HmacSha256);
@@ -19,7 +19,7 @@ public static class JwtTokenFactory
         {
             new Claim(JwtRegisteredClaimNames.Sub, id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, email),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, (jti ?? Guid.NewGuid()).ToString()),
             new Claim("role", role)
         };
 
