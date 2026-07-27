@@ -18,4 +18,5 @@ public class TTicketResultado
     public string? UserDisplayName { get; set; }
     public string? UserEmail { get; set; }
     public string? UserUsername { get; set; }
+    public short? Rating { get; set; }
 }

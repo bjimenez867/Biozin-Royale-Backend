@@ -220,6 +220,11 @@ public class TicketsLN : ITicketsLN
                 resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
                 return Task.FromResult(resultado);
             }
+            if (ticket.Status == "resuelto")
+            {
+                resultado.lpError("Ticket cerrado", "El ticket está resuelto. Reabre el ticket para continuar la conversación.");
+                return Task.FromResult(resultado);
+            }
         }
 
         string senderName;
@@ -345,6 +350,93 @@ public class TicketsLN : ITicketsLN
         return Task.FromResult(resultado);
     }
 
+    // ── Reabrir / Valorar ──────────────────────────────────────────────────
+
+    public Task<Response<TTicketResultado>> ReopenAsync(Guid ticketId, Guid userId)
+    {
+        var resultado = new Response<TTicketResultado>();
+
+        var ticket = _unitOfWork.SupportTickets.ObtenerEntidad(t => t.Id == ticketId).ReturnValue;
+        if (ticket == null)
+        {
+            resultado.lpError("No encontrado", "El ticket no existe.");
+            return Task.FromResult(resultado);
+        }
+
+        if (ticket.UserId != userId)
+        {
+            resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
+            return Task.FromResult(resultado);
+        }
+
+        if (ticket.Status != "resuelto")
+        {
+            resultado.lpError("No aplica", "Solo se pueden reabrir tickets resueltos.");
+            return Task.FromResult(resultado);
+        }
+
+        ticket.Status    = "en_proceso";
+        ticket.Rating    = null;
+        ticket.RatedAt   = null;
+        ticket.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.SupportTickets.Modificar(ticket);
+
+        _unitOfWork.TicketMessages.Insertar(new TicketMessage
+        {
+            Id         = Guid.NewGuid(),
+            TicketId   = ticketId,
+            SenderId   = userId,
+            SenderRole = "system",
+            SenderName = "Sistema",
+            Body       = "El usuario reabrió el ticket.",
+            CreatedAt  = DateTime.UtcNow,
+        });
+
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = MapTicket(ticket, null, null, null, null);
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<TTicketResultado>> RateAsync(Guid ticketId, Guid userId, short rating)
+    {
+        var resultado = new Response<TTicketResultado>();
+
+        if (rating < 1 || rating > 5)
+        {
+            resultado.lpError("Valoración inválida", "La valoración debe estar entre 1 y 5.");
+            return Task.FromResult(resultado);
+        }
+
+        var ticket = _unitOfWork.SupportTickets.ObtenerEntidad(t => t.Id == ticketId).ReturnValue;
+        if (ticket == null)
+        {
+            resultado.lpError("No encontrado", "El ticket no existe.");
+            return Task.FromResult(resultado);
+        }
+
+        if (ticket.UserId != userId)
+        {
+            resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
+            return Task.FromResult(resultado);
+        }
+
+        if (ticket.Status != "resuelto")
+        {
+            resultado.lpError("No aplica", "Solo se pueden valorar tickets resueltos.");
+            return Task.FromResult(resultado);
+        }
+
+        ticket.Rating    = rating;
+        ticket.RatedAt   = DateTime.UtcNow;
+        ticket.UpdatedAt = DateTime.UtcNow;
+        _unitOfWork.SupportTickets.Modificar(ticket);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = MapTicket(ticket, null, null, null, null);
+        return Task.FromResult(resultado);
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private static TTicketResultado MapTicket(
@@ -370,6 +462,7 @@ public class TicketsLN : ITicketsLN
             UserDisplayName = userDisplayName,
             UserEmail       = userEmail,
             UserUsername    = userUsername,
+            Rating          = t.Rating,
         };
     }
 }

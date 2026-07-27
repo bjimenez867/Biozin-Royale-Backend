@@ -13,4 +13,6 @@ public class SupportTicket
     public Guid? AssignedTo { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public short? Rating { get; set; }
+    public DateTime? RatedAt { get; set; }
 }

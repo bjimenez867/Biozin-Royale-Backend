@@ -182,6 +182,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(t => t.AssignedTo).HasColumnName("assigned_to");
                 entity.Property(t => t.CreatedAt).HasColumnName("created_at");
                 entity.Property(t => t.UpdatedAt).HasColumnName("updated_at");
+                entity.Property(t => t.Rating).HasColumnName("rating");
+                entity.Property(t => t.RatedAt).HasColumnName("rated_at");
             });
 
             modelBuilder.Entity<TicketMessage>(entity =>

@@ -104,6 +104,28 @@ public class TicketsController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    // ── Acciones del usuario ───────────────────────────────────────────────
+
+    [HttpPost("{id:guid}/reopen")]
+    public async Task<IActionResult> Reabrir(Guid id)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+        if (IsStaff()) return Forbid();
+
+        var resultado = await _ticketsLN.ReopenAsync(id, userId);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    [HttpPost("{id:guid}/rate")]
+    public async Task<IActionResult> Valorar(Guid id, [FromBody] TRateTicket datos)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+        if (IsStaff()) return Forbid();
+
+        var resultado = await _ticketsLN.RateAsync(id, userId, datos.Rating);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     [HttpGet("agents")]
     public async Task<IActionResult> ListarAgentes()
     {
