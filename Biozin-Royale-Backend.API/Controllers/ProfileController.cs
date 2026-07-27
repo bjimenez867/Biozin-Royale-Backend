@@ -129,6 +129,20 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    // Llamado por el frontend en AuthService.logout(): sin esto, cada login deja su
+    // Session (ver AuthLN.GenerarTokenConSesion) marcada IsActive = true para siempre,
+    // así que cerrar sesión varias veces desde el mismo dispositivo acumulaba varias
+    // tarjetas "activas" en vez de una sola.
+    [HttpPost("sessions/logout")]
+    public async Task<IActionResult> CerrarSesionActual()
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+        if (!TryGetSessionId(out var currentSessionId)) return Unauthorized();
+
+        var resultado = await _profileLN.CerrarSesionAsync(userId, currentSessionId);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var sub = User.FindFirst("sub")?.Value;

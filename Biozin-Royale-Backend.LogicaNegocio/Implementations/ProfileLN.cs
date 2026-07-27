@@ -222,6 +222,12 @@ public class ProfileLN : IProfileLN
         }
 
         perfil.PinEnabled = enabled;
+        if (!enabled)
+        {
+            // Al desactivar se elimina el PIN almacenado: para volver a activarlo el
+            // usuario debe crear un PIN nuevo (CrearPinAsync), no reutilizar el anterior.
+            perfil.PinHash = null;
+        }
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
