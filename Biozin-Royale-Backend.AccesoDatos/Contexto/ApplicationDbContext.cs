@@ -18,6 +18,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
         public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
         public DbSet<Session> Sessions => Set<Session>();
+        public DbSet<SecurityEvent> SecurityEvents => Set<SecurityEvent>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -183,6 +184,17 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(s => s.RevokedAt).HasColumnName("revoked_at");
                 entity.Property(s => s.IsActive).HasColumnName("is_active");
                 entity.HasIndex(s => s.ProfileId);
+            });
+
+            modelBuilder.Entity<SecurityEvent>(entity =>
+            {
+                entity.ToTable("security_events");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.ProfileId).HasColumnName("profile_id");
+                entity.Property(e => e.EventType).HasColumnName("event_type");
+                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+                entity.HasIndex(e => e.ProfileId);
             });
         }
     }

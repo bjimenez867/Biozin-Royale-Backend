@@ -19,6 +19,20 @@ public class ProfileLN : IProfileLN
         _cache = cache;
     }
 
+    // No hace su propio Completar(): se inserta junto con el resto de cambios del
+    // método que la llama, para que quede en el mismo SaveChanges (mismo patrón que
+    // Sessions en AuthLN.GenerarTokenConSesion).
+    private void RegistrarEvento(Guid profileId, string eventType)
+    {
+        _unitOfWork.SecurityEvents.Insertar(new SecurityEvent
+        {
+            Id = Guid.NewGuid(),
+            ProfileId = profileId,
+            EventType = eventType,
+            CreatedAt = DateTime.UtcNow,
+        });
+    }
+
     public Task<Response<TPerfilResultado>> ObtenerPerfilAsync(Guid userId)
     {
         var resultado = new Response<TPerfilResultado>();
@@ -100,6 +114,7 @@ public class ProfileLN : IProfileLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
+        RegistrarEvento(perfil.Id, "password_change");
         _unitOfWork.Completar();
 
         resultado.ReturnValue = true;
@@ -136,6 +151,7 @@ public class ProfileLN : IProfileLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
+        RegistrarEvento(perfil.Id, "pin_created");
         _unitOfWork.Completar();
 
         resultado.ReturnValue = true;
@@ -175,6 +191,7 @@ public class ProfileLN : IProfileLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
+        RegistrarEvento(perfil.Id, "pin_changed");
         _unitOfWork.Completar();
 
         resultado.ReturnValue = true;
@@ -208,6 +225,7 @@ public class ProfileLN : IProfileLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
+        RegistrarEvento(perfil.Id, enabled ? "pin_enabled" : "pin_disabled");
         _unitOfWork.Completar();
 
         resultado.ReturnValue = true;
@@ -240,9 +258,34 @@ public class ProfileLN : IProfileLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
+        RegistrarEvento(perfil.Id, enabled ? "twofactor_enabled" : "twofactor_disabled");
         _unitOfWork.Completar();
 
         resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<List<TSecurityEvent>>> ObtenerHistorialSeguridadAsync(Guid userId)
+    {
+        var resultado = new Response<List<TSecurityEvent>>();
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
+            return Task.FromResult(resultado);
+        }
+
+        // 50: sirve tanto a la tarjeta compacta de Ajustes (solo muestra los primeros 3)
+        // como a la pantalla de "Historial de seguridad" completo.
+        var eventos = _unitOfWork.SecurityEvents
+            .ObtenerEntidades(e => e.ProfileId == perfil.Id).ReturnValue
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(50)
+            .Select(e => new TSecurityEvent { EventType = e.EventType, CreatedAt = e.CreatedAt })
+            .ToList();
+
+        resultado.ReturnValue = eventos;
         return Task.FromResult(resultado);
     }
 

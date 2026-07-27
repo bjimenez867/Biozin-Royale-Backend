@@ -19,6 +19,7 @@ public class UnitWorkEF : IUnitWork
     public IRepositoryAD<StaffMember> StaffMembers { get; }
     public IRepositoryAD<UserBlock> UserBlocks { get; }
     public IRepositoryAD<Session> Sessions { get; }
+    public IRepositoryAD<SecurityEvent> SecurityEvents { get; }
 
     public UnitWorkEF(ApplicationDbContext contexto)
     {
@@ -33,6 +34,7 @@ public class UnitWorkEF : IUnitWork
         StaffMembers = new RepositoryAD<StaffMember>(contexto);
         UserBlocks = new RepositoryAD<UserBlock>(contexto);
         Sessions = new RepositoryAD<Session>(contexto);
+        SecurityEvents = new RepositoryAD<SecurityEvent>(contexto);
     }
 
     public int Completar()

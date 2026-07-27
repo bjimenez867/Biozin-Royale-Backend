@@ -15,6 +15,7 @@ public interface IProfileLN
     Task<Response<List<TSession>>> ObtenerSesionesAsync(Guid userId, Guid? currentSessionId);
     Task<Response<bool>> CerrarSesionAsync(Guid userId, Guid sessionId);
     Task<Response<bool>> CerrarOtrasSesionesAsync(Guid userId, Guid currentSessionId);
+    Task<Response<List<TSecurityEvent>>> ObtenerHistorialSeguridadAsync(Guid userId);
     Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId);
     Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId);
     Task<Response<TUserBlockInfo>> ObtenerBloqueoActivoAsync(Guid adminId, Guid userId);

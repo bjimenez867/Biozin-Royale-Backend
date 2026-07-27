@@ -152,6 +152,7 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
+        RegistrarEvento(perfil.Id, "login");
         resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarTokenConSesion(perfil, userAgent, ipAddress));
         return resultado;
     }
@@ -216,6 +217,7 @@ public class AuthLN : IAuthLN
         _unitOfWork.Profiles.Modificar(perfil);
         _unitOfWork.Completar();
 
+        RegistrarEvento(perfil.Id, "login");
         resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarTokenConSesion(perfil, userAgent, ipAddress));
         return resultado;
     }
@@ -307,6 +309,8 @@ public class AuthLN : IAuthLN
                 CreatedAt = DateTime.UtcNow,
                 IsActive = true,
             });
+            // Los invitados no tienen cuenta real que auditar todavía.
+            if (!esAnonimo) RegistrarEvento(perfil.Id, "login");
             _unitOfWork.Completar();
         }
 
@@ -641,6 +645,19 @@ public class AuthLN : IAuthLN
 
         resultado.ReturnValue = true;
         return Task.FromResult(resultado);
+    }
+
+    // No hace su propio Completar(): se inserta junto con el resto de cambios del
+    // método que la llama (mismo patrón que la versión en ProfileLN).
+    private void RegistrarEvento(Guid profileId, string eventType)
+    {
+        _unitOfWork.SecurityEvents.Insertar(new SecurityEvent
+        {
+            Id = Guid.NewGuid(),
+            ProfileId = profileId,
+            EventType = eventType,
+            CreatedAt = DateTime.UtcNow,
+        });
     }
 
     // A diferencia de GenerarToken (usado para OAuth/staff, sin sesión rastreable),

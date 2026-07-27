@@ -91,6 +91,15 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [HttpGet("security-history")]
+    public async Task<IActionResult> ObtenerHistorialSeguridad()
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var resultado = await _profileLN.ObtenerHistorialSeguridadAsync(userId);
+        return resultado.blnError ? NotFound(resultado) : Ok(resultado);
+    }
+
     [HttpGet("sessions")]
     public async Task<IActionResult> ObtenerSesiones()
     {
