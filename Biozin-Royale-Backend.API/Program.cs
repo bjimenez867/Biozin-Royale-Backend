@@ -29,7 +29,11 @@ builder.Services.AddScoped<IWalletLN, WalletLN>();
 builder.Services.AddScoped<IBetsLN, BetsLN>();
 builder.Services.AddScoped<IPromotionLN, PromotionLN>();
 builder.Services.AddScoped<IReportesLN, ReportesLN>();
+builder.Services.AddScoped<IDepositosLN, DepositosLN>();
+builder.Services.AddScoped<IMetodosPagoLN, MetodosPagoLN>();
+builder.Services.AddScoped<IRetirosLN, RetirosLN>();
 
+builder.Services.AddHttpClient();
 builder.Services.AddHttpClient("OddsApi", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["OddsApi:BaseUrl"]!);
