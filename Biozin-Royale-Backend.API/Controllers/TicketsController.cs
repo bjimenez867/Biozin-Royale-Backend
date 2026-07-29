@@ -126,6 +126,16 @@ public class TicketsController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [HttpPost("{id:guid}/cerrar")]
+    public async Task<IActionResult> Cerrar(Guid id)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+        if (IsStaff()) return Forbid();
+
+        var resultado = await _ticketsLN.CerrarAsync(id, userId);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     [HttpGet("agents")]
     public async Task<IActionResult> ListarAgentes()
     {

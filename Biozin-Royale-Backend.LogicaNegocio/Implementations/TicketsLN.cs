@@ -220,9 +220,9 @@ public class TicketsLN : ITicketsLN
                 resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
                 return Task.FromResult(resultado);
             }
-            if (ticket.Status == "resuelto")
+            if (ticket.Status == "resuelto" || ticket.Status == "cerrado")
             {
-                resultado.lpError("Ticket cerrado", "El ticket está resuelto. Reabre el ticket para continuar la conversación.");
+                resultado.lpError("Ticket cerrado", "El ticket está cerrado. Reabre el ticket para continuar la conversación.");
                 return Task.FromResult(resultado);
             }
         }
@@ -427,10 +427,96 @@ public class TicketsLN : ITicketsLN
             return Task.FromResult(resultado);
         }
 
-        ticket.Rating    = rating;
-        ticket.RatedAt   = DateTime.UtcNow;
+        ticket.UpdatedAt = DateTime.UtcNow;
+
+        if (rating >= 4)
+        {
+            // Buena experiencia → cierre definitivo
+            ticket.Rating  = rating;
+            ticket.RatedAt = DateTime.UtcNow;
+            ticket.Status  = "cerrado";
+            _unitOfWork.SupportTickets.Modificar(ticket);
+            _unitOfWork.TicketMessages.Insertar(new TicketMessage
+            {
+                Id         = Guid.NewGuid(),
+                TicketId   = ticketId,
+                SenderId   = userId,
+                SenderRole = "system",
+                SenderName = "Sistema",
+                Body       = "El usuario valoró la atención y el ticket fue cerrado.",
+                CreatedAt  = DateTime.UtcNow,
+            });
+        }
+        else if (rating <= 2)
+        {
+            // Mala experiencia → reabrir automáticamente (sin guardar rating)
+            ticket.Status  = "en_proceso";
+            ticket.Rating  = null;
+            ticket.RatedAt = null;
+            _unitOfWork.SupportTickets.Modificar(ticket);
+            _unitOfWork.TicketMessages.Insertar(new TicketMessage
+            {
+                Id         = Guid.NewGuid(),
+                TicketId   = ticketId,
+                SenderId   = userId,
+                SenderRole = "system",
+                SenderName = "Sistema",
+                Body       = "El ticket fue reabierto por baja satisfacción del usuario.",
+                CreatedAt  = DateTime.UtcNow,
+            });
+        }
+        else
+        {
+            // Rating 3 → guardar valoración, el usuario elige qué hacer
+            ticket.Rating  = rating;
+            ticket.RatedAt = DateTime.UtcNow;
+            _unitOfWork.SupportTickets.Modificar(ticket);
+        }
+
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = MapTicket(ticket, null, null, null, null);
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<TTicketResultado>> CerrarAsync(Guid ticketId, Guid userId)
+    {
+        var resultado = new Response<TTicketResultado>();
+
+        var ticket = _unitOfWork.SupportTickets.ObtenerEntidad(t => t.Id == ticketId).ReturnValue;
+        if (ticket == null)
+        {
+            resultado.lpError("No encontrado", "El ticket no existe.");
+            return Task.FromResult(resultado);
+        }
+
+        if (ticket.UserId != userId)
+        {
+            resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
+            return Task.FromResult(resultado);
+        }
+
+        if (ticket.Status != "resuelto")
+        {
+            resultado.lpError("No aplica", "Solo se pueden cerrar definitivamente tickets resueltos.");
+            return Task.FromResult(resultado);
+        }
+
+        ticket.Status    = "cerrado";
         ticket.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.SupportTickets.Modificar(ticket);
+
+        _unitOfWork.TicketMessages.Insertar(new TicketMessage
+        {
+            Id         = Guid.NewGuid(),
+            TicketId   = ticketId,
+            SenderId   = userId,
+            SenderRole = "system",
+            SenderName = "Sistema",
+            Body       = "El ticket fue cerrado definitivamente.",
+            CreatedAt  = DateTime.UtcNow,
+        });
+
         _unitOfWork.Completar();
 
         resultado.ReturnValue = MapTicket(ticket, null, null, null, null);

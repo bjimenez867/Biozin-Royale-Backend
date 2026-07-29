@@ -17,4 +17,5 @@ public interface ITicketsLN
     Task<Response<IEnumerable<TStaffSimple>>> ListarAgentesAsync();
     Task<Response<TTicketResultado>> ReopenAsync(Guid ticketId, Guid userId);
     Task<Response<TTicketResultado>> RateAsync(Guid ticketId, Guid userId, short rating);
+    Task<Response<TTicketResultado>> CerrarAsync(Guid ticketId, Guid userId);
 }
