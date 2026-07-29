@@ -63,6 +63,45 @@ public class ProfileLN : IProfileLN
         return Task.FromResult(resultado);
     }
 
+    public Task<Response<bool>> CambiarPasswordAsync(Guid userId, string oldPassword, string newPassword)
+    {
+        var resultado = new Response<bool>();
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+        {
+            resultado.lpError("Contraseña inválida", "La nueva contraseña debe tener al menos 8 caracteres.");
+            return Task.FromResult(resultado);
+        }
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
+            return Task.FromResult(resultado);
+        }
+
+        if (string.IsNullOrEmpty(perfil.Password))
+        {
+            resultado.lpError("Cuenta sin contraseña", "Tu cuenta inició sesión con Google y no tiene una contraseña configurada.");
+            return Task.FromResult(resultado);
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(oldPassword, perfil.Password))
+        {
+            resultado.lpError("Contraseña incorrecta", "La contraseña actual es incorrecta.");
+            return Task.FromResult(resultado);
+        }
+
+        perfil.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
     public Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId)
     {
         var resultado = new Response<List<TAdminUser>>();

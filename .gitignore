@@ -3,7 +3,5 @@ obj/
 .idea/
 *.user
 .DS_Store
-
-# Secrets locales — nunca subir al repositorio
 appsettings.Development.json
 appsettings.Local.json

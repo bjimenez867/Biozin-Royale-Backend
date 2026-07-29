@@ -7,6 +7,7 @@ public interface IProfileLN
 {
     Task<Response<TPerfilResultado>> ObtenerPerfilAsync(Guid userId);
     Task<Response<TPerfilResultado>> ActualizarPerfilAsync(Guid userId, TActualizarPerfil datos);
+    Task<Response<bool>> CambiarPasswordAsync(Guid userId, string oldPassword, string newPassword);
     Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId);
     Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId);
     Task<Response<TUserBlockInfo>> ObtenerBloqueoActivoAsync(Guid adminId, Guid userId);

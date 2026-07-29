@@ -46,6 +46,15 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [HttpPut("password")]
+    public async Task<IActionResult> CambiarPassword([FromBody] TCambiarPassword datos)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var resultado = await _profileLN.CambiarPasswordAsync(userId, datos.OldPassword, datos.NewPassword);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var sub = User.FindFirst("sub")?.Value;
