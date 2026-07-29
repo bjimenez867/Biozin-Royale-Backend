@@ -17,12 +17,9 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<PromotionClaim> PromotionClaims => Set<PromotionClaim>();
         public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
         public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
-<<<<<<< HEAD
         public DbSet<Session> Sessions => Set<Session>();
         public DbSet<SecurityEvent> SecurityEvents => Set<SecurityEvent>();
-=======
         public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
->>>>>>> develop
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -199,6 +196,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(e => e.EventType).HasColumnName("event_type");
                 entity.Property(e => e.CreatedAt).HasColumnName("created_at");
                 entity.HasIndex(e => e.ProfileId);
+            });
+
             modelBuilder.Entity<PaymentMethod>(entity =>
             {
                 entity.ToTable("payment_methods");
