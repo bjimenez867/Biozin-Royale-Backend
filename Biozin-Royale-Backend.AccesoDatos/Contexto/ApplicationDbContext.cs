@@ -179,12 +179,14 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.HasKey(s => s.Id);
                 entity.Property(s => s.Id).HasColumnName("id");
                 entity.Property(s => s.ProfileId).HasColumnName("profile_id");
+                entity.Property(s => s.StaffId).HasColumnName("staff_id");
                 entity.Property(s => s.DeviceLabel).HasColumnName("device_label");
                 entity.Property(s => s.IpAddress).HasColumnName("ip_address");
                 entity.Property(s => s.CreatedAt).HasColumnName("created_at");
                 entity.Property(s => s.RevokedAt).HasColumnName("revoked_at");
                 entity.Property(s => s.IsActive).HasColumnName("is_active");
                 entity.HasIndex(s => s.ProfileId);
+                entity.HasIndex(s => s.StaffId);
             });
 
             modelBuilder.Entity<SecurityEvent>(entity =>
@@ -193,9 +195,11 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).HasColumnName("id");
                 entity.Property(e => e.ProfileId).HasColumnName("profile_id");
+                entity.Property(e => e.StaffId).HasColumnName("staff_id");
                 entity.Property(e => e.EventType).HasColumnName("event_type");
                 entity.Property(e => e.CreatedAt).HasColumnName("created_at");
                 entity.HasIndex(e => e.ProfileId);
+                entity.HasIndex(e => e.StaffId);
             });
 
             modelBuilder.Entity<PaymentMethod>(entity =>

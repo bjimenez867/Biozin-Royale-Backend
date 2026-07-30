@@ -26,6 +26,7 @@ internal static class StaffMapper
             Status = staff.Status,
             Role = CredentialsGenerator.DetectRole(staff.Email),
             IsGuest = false,
+            HasPassword = true,
             Token = token,
             CamposPendientes = new List<string>(),
             TempPassword = tempPassword,

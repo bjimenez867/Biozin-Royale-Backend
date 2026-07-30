@@ -118,9 +118,74 @@ public class StaffController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    // ── Sesiones activas (admin y soporte) ─────────────────────────
+
+    [HttpGet("sessions")]
+    [Authorize(Roles = "admin,soporte")]
+    public async Task<IActionResult> ObtenerSesiones()
+    {
+        if (!TryGetUserId(out var staffId)) return Unauthorized();
+
+        TryGetSessionId(out var currentSessionId);
+        var resultado = await _staffLN.ObtenerSesionesAsync(staffId, currentSessionId);
+        return resultado.blnError ? NotFound(resultado) : Ok(resultado);
+    }
+
+    [HttpDelete("sessions/{id:guid}")]
+    [Authorize(Roles = "admin,soporte")]
+    public async Task<IActionResult> CerrarSesion(Guid id)
+    {
+        if (!TryGetUserId(out var staffId)) return Unauthorized();
+
+        var resultado = await _staffLN.CerrarSesionAsync(staffId, id);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    [HttpPost("sessions/close-others")]
+    [Authorize(Roles = "admin,soporte")]
+    public async Task<IActionResult> CerrarOtrasSesiones()
+    {
+        if (!TryGetUserId(out var staffId)) return Unauthorized();
+        if (!TryGetSessionId(out var currentSessionId)) return Unauthorized();
+
+        var resultado = await _staffLN.CerrarOtrasSesionesAsync(staffId, currentSessionId);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    // Llamado por el frontend en AuthService.logout() para staff/soporte, igual que
+    // ProfileController.CerrarSesionActual() para usuarios normales.
+    [HttpPost("sessions/logout")]
+    [Authorize(Roles = "admin,soporte")]
+    public async Task<IActionResult> CerrarSesionActual()
+    {
+        if (!TryGetUserId(out var staffId)) return Unauthorized();
+        if (!TryGetSessionId(out var currentSessionId)) return Unauthorized();
+
+        var resultado = await _staffLN.CerrarSesionAsync(staffId, currentSessionId);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    [HttpGet("security-history")]
+    [Authorize(Roles = "admin,soporte")]
+    public async Task<IActionResult> ObtenerHistorialSeguridad()
+    {
+        if (!TryGetUserId(out var staffId)) return Unauthorized();
+
+        var resultado = await _staffLN.ObtenerHistorialSeguridadAsync(staffId);
+        return resultado.blnError ? NotFound(resultado) : Ok(resultado);
+    }
+
     private bool TryGetUserId(out Guid userId)
     {
         var sub = User.FindFirst("sub")?.Value;
         return Guid.TryParse(sub, out userId);
+    }
+
+    // Tokens de staff traen "jti" (ver StaffLN.GenerarTokenConSesion), igual que los
+    // de login manual de usuario — no hay ruta OAuth/Supabase para staff.
+    private bool TryGetSessionId(out Guid sessionId)
+    {
+        var jti = User.FindFirst("jti")?.Value;
+        return Guid.TryParse(jti, out sessionId);
     }
 }

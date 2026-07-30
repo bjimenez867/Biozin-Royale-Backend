@@ -121,7 +121,7 @@ public class AuthLN : IAuthLN
         // un admin al crear el miembro; el dominio aquí solo decide a qué tabla mirar.
         if (CredentialsGenerator.DetectRole(emailNormalizado) != "user")
         {
-            return await _staffLN.LoginAsync(emailNormalizado, password);
+            return await _staffLN.LoginAsync(emailNormalizado, password, userAgent, ipAddress);
         }
 
         var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNormalizado).ReturnValue;

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
@@ -14,12 +15,14 @@ public class StaffLN : IStaffLN
     private readonly IUnitWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly IEmailService _emailService;
+    private readonly IMemoryCache _cache;
 
-    public StaffLN(IUnitWork unitOfWork, IConfiguration configuration, IEmailService emailService)
+    public StaffLN(IUnitWork unitOfWork, IConfiguration configuration, IEmailService emailService, IMemoryCache cache)
     {
         _unitOfWork = unitOfWork;
         _configuration = configuration;
         _emailService = emailService;
+        _cache = cache;
     }
 
     public async Task<Response<TPerfilResultado>> CrearMiembroAsync(TCrearStaffMember datos, Guid creadoPorId)
@@ -94,7 +97,7 @@ public class StaffLN : IStaffLN
         return Task.FromResult(resultado);
     }
 
-    public Task<Response<TPerfilResultado>> LoginAsync(string email, string password)
+    public Task<Response<TPerfilResultado>> LoginAsync(string email, string password, string? userAgent, string? ipAddress)
     {
         var resultado = new Response<TPerfilResultado>();
 
@@ -105,8 +108,123 @@ public class StaffLN : IStaffLN
             return Task.FromResult(resultado);
         }
 
-        var token = JwtTokenFactory.GenerarToken(_configuration, staff.Id, staff.Email, CredentialsGenerator.DetectRole(staff.Email));
+        var token = GenerarTokenConSesion(staff, userAgent, ipAddress);
         resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token);
+        return Task.FromResult(resultado);
+    }
+
+    // Mismo patrón que AuthLN.GenerarTokenConSesion: captura el jti para poder listarlo/
+    // revocarlo después desde "Sesiones activas" del admin.
+    private string GenerarTokenConSesion(StaffMember staff, string? userAgent, string? ipAddress)
+    {
+        var jti = Guid.NewGuid();
+        var token = JwtTokenFactory.GenerarToken(_configuration, staff.Id, staff.Email, CredentialsGenerator.DetectRole(staff.Email), jti);
+
+        _unitOfWork.Sessions.Insertar(new Session
+        {
+            Id = jti,
+            StaffId = staff.Id,
+            DeviceLabel = DeviceParser.AnalizarUserAgent(userAgent),
+            IpAddress = ipAddress,
+            CreatedAt = DateTime.UtcNow,
+            IsActive = true,
+        });
+        RegistrarEvento(staff.Id, "login");
+        _unitOfWork.Completar();
+
+        return token;
+    }
+
+    // No hace su propio Completar(): se inserta junto con el resto de cambios del
+    // método que la llama (mismo patrón que ProfileLN/AuthLN.RegistrarEvento).
+    private void RegistrarEvento(Guid staffId, string eventType)
+    {
+        _unitOfWork.SecurityEvents.Insertar(new SecurityEvent
+        {
+            Id = Guid.NewGuid(),
+            StaffId = staffId,
+            EventType = eventType,
+            CreatedAt = DateTime.UtcNow,
+        });
+    }
+
+    public Task<Response<List<TSecurityEvent>>> ObtenerHistorialSeguridadAsync(Guid staffId)
+    {
+        var resultado = new Response<List<TSecurityEvent>>();
+
+        var eventos = _unitOfWork.SecurityEvents
+            .ObtenerEntidades(e => e.StaffId == staffId).ReturnValue
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(50)
+            .Select(e => new TSecurityEvent { EventType = e.EventType, CreatedAt = e.CreatedAt })
+            .ToList();
+
+        resultado.ReturnValue = eventos;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<List<TSession>>> ObtenerSesionesAsync(Guid staffId, Guid? currentSessionId)
+    {
+        var resultado = new Response<List<TSession>>();
+
+        var sesiones = _unitOfWork.Sessions
+            .ObtenerEntidades(s => s.StaffId == staffId && s.IsActive).ReturnValue
+            .OrderByDescending(s => s.CreatedAt)
+            .Select(s => new TSession
+            {
+                Id = s.Id,
+                DeviceLabel = s.DeviceLabel,
+                IpAddress = s.IpAddress,
+                CreatedAt = s.CreatedAt,
+                IsCurrent = currentSessionId.HasValue && s.Id == currentSessionId.Value,
+            })
+            .ToList();
+
+        resultado.ReturnValue = sesiones;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<bool>> CerrarSesionAsync(Guid staffId, Guid sessionId)
+    {
+        var resultado = new Response<bool>();
+
+        var sesion = _unitOfWork.Sessions.ObtenerEntidad(s => s.Id == sessionId && s.StaffId == staffId).ReturnValue;
+        if (sesion is null || !sesion.IsActive)
+        {
+            resultado.lpError("Sesión no encontrada", "Esa sesión ya no está activa.");
+            return Task.FromResult(resultado);
+        }
+
+        sesion.IsActive = false;
+        sesion.RevokedAt = DateTime.UtcNow;
+        _unitOfWork.Sessions.Modificar(sesion);
+        _unitOfWork.Completar();
+
+        _cache.Set(sesion.Id, true, TimeSpan.FromSeconds(30));
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
+    public Task<Response<bool>> CerrarOtrasSesionesAsync(Guid staffId, Guid currentSessionId)
+    {
+        var resultado = new Response<bool>();
+
+        var otras = _unitOfWork.Sessions
+            .ObtenerEntidades(s => s.StaffId == staffId && s.IsActive && s.Id != currentSessionId).ReturnValue
+            .ToList();
+
+        foreach (var sesion in otras)
+        {
+            sesion.IsActive = false;
+            sesion.RevokedAt = DateTime.UtcNow;
+            _unitOfWork.Sessions.Modificar(sesion);
+            _cache.Set(sesion.Id, true, TimeSpan.FromSeconds(30));
+        }
+
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = true;
         return Task.FromResult(resultado);
     }
 
@@ -269,6 +387,7 @@ public class StaffLN : IStaffLN
         staff.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.StaffMembers.Modificar(staff);
+        RegistrarEvento(staff.Id, "password_change");
         _unitOfWork.Completar();
 
         resultado.ReturnValue = true;
