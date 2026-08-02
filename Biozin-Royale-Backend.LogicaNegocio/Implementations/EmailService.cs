@@ -237,5 +237,38 @@ namespace Biozin_Royale_Backend.LogicaNegocio.Implementations
             await smtp.DisconnectAsync(true, cts.Token);
         }
 
+        public async Task EnviarAutoReplyTicketAsync(
+            string correoDestino,
+            string nombre,
+            int ticketNumber,
+            string categoria,
+            string correoRemitente)
+        {
+            var mensaje = new MimeMessage();
+            mensaje.From.Add(new MailboxAddress("Biozin Royale Soporte", correoRemitente));
+            mensaje.To.Add(MailboxAddress.Parse(correoDestino));
+            mensaje.Subject = $"Ticket #BR-{ticketNumber} creado – Biozin Royale";
+
+            var builder = new BodyBuilder();
+            builder.TextBody =
+                $"Hola {nombre},\n\n" +
+                $"Tu solicitud de soporte fue recibida y registrada con el número #BR-{ticketNumber}.\n\n" +
+                $"Categoría: {categoria}\n\n" +
+                $"Nuestro equipo la atenderá a la brevedad. Puedes hacer seguimiento iniciando sesión en la app.\n\n" +
+                $"Equipo Biozin Royale";
+            mensaje.Body = builder.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            await smtp.ConnectAsync(
+                _config["Mail:Smtp"]!,
+                (int.TryParse(_config["Mail:Puerto"], out var smtpPuerto) ? smtpPuerto : 587),
+                MailKit.Security.SecureSocketOptions.StartTls,
+                cts.Token);
+            await smtp.AuthenticateAsync(_config["Mail:Usuario"]!, _config["Mail:Password"]!, cts.Token);
+            await smtp.SendAsync(mensaje, cts.Token);
+            await smtp.DisconnectAsync(true, cts.Token);
+        }
+
     }
 }

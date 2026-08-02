@@ -21,6 +21,8 @@ public class UnitWorkEF : IUnitWork
     public IRepositoryAD<Session> Sessions { get; }
     public IRepositoryAD<SecurityEvent> SecurityEvents { get; }
     public IRepositoryAD<PaymentMethod> PaymentMethods { get; }
+    public IRepositoryAD<SupportTicket> SupportTickets { get; }
+    public IRepositoryAD<TicketMessage> TicketMessages { get; }
 
     public UnitWorkEF(ApplicationDbContext contexto)
     {
@@ -37,6 +39,8 @@ public class UnitWorkEF : IUnitWork
         Sessions = new RepositoryAD<Session>(contexto);
         SecurityEvents = new RepositoryAD<SecurityEvent>(contexto);
         PaymentMethods = new RepositoryAD<PaymentMethod>(contexto);
+        SupportTickets = new RepositoryAD<SupportTicket>(contexto);
+        TicketMessages = new RepositoryAD<TicketMessage>(contexto);
     }
 
     public int Completar()

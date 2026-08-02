@@ -20,6 +20,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<Session> Sessions => Set<Session>();
         public DbSet<SecurityEvent> SecurityEvents => Set<SecurityEvent>();
         public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
+        public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
+        public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -200,6 +202,41 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(e => e.CreatedAt).HasColumnName("created_at");
                 entity.HasIndex(e => e.ProfileId);
                 entity.HasIndex(e => e.StaffId);
+            });
+
+            modelBuilder.Entity<SupportTicket>(entity =>
+            {
+                entity.ToTable("support_tickets");
+                entity.HasKey(t => t.Id);
+                entity.Property(t => t.Id).HasColumnName("id");
+                entity.Property(t => t.TicketNumber).HasColumnName("ticket_number").ValueGeneratedOnAdd();
+                entity.Property(t => t.UserId).HasColumnName("user_id");
+                entity.Property(t => t.Subject).HasColumnName("subject");
+                entity.Property(t => t.Category).HasColumnName("category");
+                entity.Property(t => t.Priority).HasColumnName("priority");
+                entity.Property(t => t.Status).HasColumnName("status");
+                entity.Property(t => t.Description).HasColumnName("description");
+                entity.Property(t => t.AssignedTo).HasColumnName("assigned_to");
+                entity.Property(t => t.CreatedAt).HasColumnName("created_at");
+                entity.Property(t => t.UpdatedAt).HasColumnName("updated_at");
+                entity.Property(t => t.Rating).HasColumnName("rating");
+                entity.Property(t => t.RatedAt).HasColumnName("rated_at");
+            });
+
+            modelBuilder.Entity<TicketMessage>(entity =>
+            {
+                entity.ToTable("ticket_messages");
+                entity.HasKey(m => m.Id);
+                entity.Property(m => m.Id).HasColumnName("id");
+                entity.Property(m => m.TicketId).HasColumnName("ticket_id");
+                entity.Property(m => m.SenderId).HasColumnName("sender_id");
+                entity.Property(m => m.SenderRole).HasColumnName("sender_role");
+                entity.Property(m => m.SenderName).HasColumnName("sender_name");
+                entity.Property(m => m.Body).HasColumnName("body");
+                entity.Property(m => m.FileUrl).HasColumnName("file_url");
+                entity.Property(m => m.FileName).HasColumnName("file_name");
+                entity.Property(m => m.CreatedAt).HasColumnName("created_at");
+                entity.HasIndex(m => new { m.TicketId, m.CreatedAt });
             });
 
             modelBuilder.Entity<PaymentMethod>(entity =>
