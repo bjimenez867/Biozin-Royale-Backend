@@ -9,4 +9,5 @@ public class TMatchLookup
     public string League { get; set; } = string.Empty;
     public string Team1 { get; set; } = string.Empty;
     public string Team2 { get; set; } = string.Empty;
+    public TSportsOdds Odds { get; set; } = new();
 }

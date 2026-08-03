@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
 using Biozin_Royale_Backend.Dominio.TypedEntities;
 
@@ -18,6 +19,7 @@ public class AuthController : ControllerBase
     }
 
     /// Registro manual (no usa Supabase Auth): crea la cuenta directamente en este backend.
+    [EnableRateLimiting("auth")]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] TRegistroManual datos)
     {
@@ -26,6 +28,7 @@ public class AuthController : ControllerBase
     }
 
     /// Login directo con email + contraseña de una cuenta registrada manualmente.
+    [EnableRateLimiting("auth")]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] TLoginManual datos)
     {
@@ -77,6 +80,7 @@ public class AuthController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("auth")]
     [AllowAnonymous]
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword([FromBody] TSolicitarRecuperacion datos)
@@ -85,6 +89,7 @@ public class AuthController : ControllerBase
         return Ok(resultado);
     }
 
+    [EnableRateLimiting("auth-codes")]
     [AllowAnonymous]
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] TRestablecerPassword datos)
@@ -93,6 +98,7 @@ public class AuthController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("auth-codes")]
     [AllowAnonymous]
     [HttpPost("verify-email")]
     public async Task<IActionResult> VerifyEmail([FromBody] TVerificarEmail datos)
@@ -101,6 +107,7 @@ public class AuthController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("auth")]
     [AllowAnonymous]
     [HttpPost("resend-verification")]
     public async Task<IActionResult> ResendVerification([FromBody] TSolicitarRecuperacion datos)
@@ -109,6 +116,7 @@ public class AuthController : ControllerBase
         return Ok(resultado);
     }
 
+    [EnableRateLimiting("auth-codes")]
     [AllowAnonymous]
     [HttpPost("verify-2fa")]
     public async Task<IActionResult> VerifyTwoFactor([FromBody] TVerificarCodigo2FA datos)
@@ -118,6 +126,7 @@ public class AuthController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("auth")]
     [AllowAnonymous]
     [HttpPost("resend-2fa")]
     public async Task<IActionResult> ResendTwoFactor([FromBody] TReenviarCodigo2FA datos)

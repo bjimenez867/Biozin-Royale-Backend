@@ -1,5 +1,7 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
@@ -33,6 +35,34 @@ builder.Services.AddScoped<IDepositosLN, DepositosLN>();
 builder.Services.AddScoped<IMetodosPagoLN, MetodosPagoLN>();
 builder.Services.AddScoped<IRetirosLN, RetirosLN>();
 builder.Services.AddScoped<ITicketsLN, TicketsLN>();
+
+builder.Services.AddRateLimiter(options =>
+{
+    static string GetClientIp(HttpContext ctx) =>
+        ctx.Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim()
+        ?? ctx.Connection.RemoteIpAddress?.ToString()
+        ?? "unknown";
+
+    options.AddPolicy("auth", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(GetClientIp(ctx), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit         = 10,
+            Window              = TimeSpan.FromMinutes(15),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit          = 0,
+        }));
+
+    options.AddPolicy("auth-codes", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter("codes:" + GetClientIp(ctx), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit         = 5,
+            Window              = TimeSpan.FromMinutes(15),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit          = 0,
+        }));
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
 
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient("OddsApi", client =>
@@ -112,7 +142,10 @@ builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
-        policy.WithOrigins("http://localhost:4200", "http://localhost:8100")
+        policy.WithOrigins(
+                  "http://localhost:4200",
+                  "http://localhost:8100",
+                  "https://blue-smoke-09bb7ba10.7.azurestaticapps.net")
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
@@ -134,6 +167,8 @@ if (app.Environment.IsDevelopment())
 app.UseCors("Frontend");
 
 app.UseHttpsRedirection();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

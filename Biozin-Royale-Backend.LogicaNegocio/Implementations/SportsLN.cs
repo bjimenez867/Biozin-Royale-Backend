@@ -95,6 +95,7 @@ public class SportsLN : ISportsLN
                         League          = cfg.League,
                         Team1           = ev.HomeTeam,
                         Team2           = ev.AwayTeam,
+                        Odds            = match.Odds,
                     };
                 }
             }

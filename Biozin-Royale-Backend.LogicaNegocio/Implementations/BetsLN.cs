@@ -53,6 +53,20 @@ public class BetsLN : IBetsLN
                 return resultado;
             }
 
+            var serverOdds = s.Outcome switch
+            {
+                "home" => (decimal?)match.Odds.Home,
+                "away" => match.Odds.Away,
+                "draw" => match.Odds.Draw,
+                _      => null,
+            };
+
+            if (serverOdds is null)
+            {
+                resultado.lpError("Apuesta inválida", "La selección no es válida para este partido.");
+                return resultado;
+            }
+
             selections.Add(new TBetSelectionDetail
             {
                 ExternalMatchId = match.ExternalId,
@@ -61,13 +75,14 @@ public class BetsLN : IBetsLN
                 Team1           = s.Team1,
                 Team2           = s.Team2,
                 Outcome         = s.Outcome,
-                Odds            = s.Odds,
+                Odds            = serverOdds.Value,
                 CommenceTimeUtc = match.CommenceTimeUtc,
                 Status          = "pending",
             });
         }
 
-        var potentialWin = Math.Round(request.Amount * request.TotalOdds, 2);
+        var serverTotalOdds = Math.Round(selections.Aggregate(1m, (acc, sel) => acc * sel.Odds), 2);
+        var potentialWin    = Math.Round(request.Amount * serverTotalOdds, 2);
         wallet.Balance = Math.Round(wallet.Balance - request.Amount, 2);
         wallet.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Wallets.Modificar(wallet);
