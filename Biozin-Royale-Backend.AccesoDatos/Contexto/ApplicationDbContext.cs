@@ -149,6 +149,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(s => s.Email).HasColumnName("email");
                 entity.Property(s => s.Phone).HasColumnName("phone");
                 entity.Property(s => s.PasswordHash).HasColumnName("password_hash");
+                entity.Property(s => s.Role).HasColumnName("role");
                 entity.Property(s => s.Status).HasColumnName("status");
                 entity.Property(s => s.MustChangePassword).HasColumnName("must_change_password");
                 entity.Property(s => s.ResetCode).HasColumnName("reset_code");
