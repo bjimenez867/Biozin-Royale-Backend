@@ -99,6 +99,8 @@ public class SportsLN : ISportsLN
                 }
             }
 
+            matches = matches.OrderBy(m => lookup[m.Id].CommenceTimeUtc).ToList();
+
             _cache = matches;
             _lookupCache = lookup;
             _cacheTs = DateTime.UtcNow;
