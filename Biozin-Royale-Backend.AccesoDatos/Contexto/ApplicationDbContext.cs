@@ -53,6 +53,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.TwoFactorEnabled).HasColumnName("two_factor_enabled");
                 entity.Property(p => p.TwoFactorCode).HasColumnName("two_factor_code");
                 entity.Property(p => p.TwoFactorCodeExpiresAt).HasColumnName("two_factor_code_expires_at");
+                entity.Property(p => p.FailedLoginAttempts).HasColumnName("failed_login_attempts");
+                entity.Property(p => p.LockedUntil).HasColumnName("locked_until");
                 entity.HasIndex(p => p.UserId).IsUnique();
                 entity.HasIndex(p => p.Username).IsUnique();
             });
@@ -154,6 +156,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(s => s.MustChangePassword).HasColumnName("must_change_password");
                 entity.Property(s => s.ResetCode).HasColumnName("reset_code");
                 entity.Property(s => s.ResetCodeExpiresAt).HasColumnName("reset_code_expires_at");
+                entity.Property(s => s.FailedLoginAttempts).HasColumnName("failed_login_attempts");
+                entity.Property(s => s.LockedUntil).HasColumnName("locked_until");
                 entity.Property(s => s.CreatedBy).HasColumnName("created_by");
                 entity.Property(s => s.CreatedAt).HasColumnName("created_at");
                 entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
