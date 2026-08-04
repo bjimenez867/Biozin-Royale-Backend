@@ -14,6 +14,8 @@ public class StaffMember
     public bool MustChangePassword { get; set; } = true;
     public string? ResetCode { get; set; }
     public DateTime? ResetCodeExpiresAt { get; set; }
+    public int FailedLoginAttempts { get; set; } = 0;
+    public DateTime? LockedUntil { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

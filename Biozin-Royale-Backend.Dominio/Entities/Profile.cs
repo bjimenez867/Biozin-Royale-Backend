@@ -26,4 +26,6 @@ public class Profile
     public bool TwoFactorEnabled { get; set; } = false;
     public string? TwoFactorCode { get; set; }
     public DateTime? TwoFactorCodeExpiresAt { get; set; }
+    public int FailedLoginAttempts { get; set; } = 0;
+    public DateTime? LockedUntil { get; set; }
 }
