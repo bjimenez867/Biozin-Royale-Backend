@@ -198,6 +198,33 @@ public class ProfileLN : IProfileLN
         return Task.FromResult(resultado);
     }
 
+    public Task<Response<bool>> VerificarPinAsync(Guid userId, string pin)
+    {
+        var resultado = new Response<bool>();
+
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil is null)
+        {
+            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
+            return Task.FromResult(resultado);
+        }
+
+        if (!perfil.PinEnabled || string.IsNullOrEmpty(perfil.PinHash))
+        {
+            resultado.lpError("Sin PIN configurado", "Todavía no tienes un PIN activo.");
+            return Task.FromResult(resultado);
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(pin, perfil.PinHash))
+        {
+            resultado.lpError("PIN incorrecto", "El PIN ingresado es incorrecto.");
+            return Task.FromResult(resultado);
+        }
+
+        resultado.ReturnValue = true;
+        return Task.FromResult(resultado);
+    }
+
     public Task<Response<bool>> CambiarEstadoPinAsync(Guid userId, string pin, bool enabled)
     {
         var resultado = new Response<bool>();
