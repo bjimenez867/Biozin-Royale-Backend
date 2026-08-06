@@ -82,6 +82,15 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [HttpPost("pin/verificar")]
+    public async Task<IActionResult> VerificarPin([FromBody] TVerificarPin datos)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var resultado = await _profileLN.VerificarPinAsync(userId, datos.Pin);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     [HttpPut("2fa/estado")]
     public async Task<IActionResult> CambiarEstadoTwoFactor([FromBody] TCambiarEstadoTwoFactor datos)
     {
