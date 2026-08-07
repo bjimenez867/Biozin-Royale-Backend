@@ -21,6 +21,7 @@ public class PromotionController : ControllerBase
     
     // ──────────── Jugador ────────────
     [HttpGet]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> GetActivas()
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -29,6 +30,7 @@ public class PromotionController : ControllerBase
     }
 
     [HttpPost("{id:guid}/claim")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Claim(Guid id)
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -37,6 +39,7 @@ public class PromotionController : ControllerBase
     }
 
     [HttpGet("my")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> GetMyClaims()
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -47,7 +50,9 @@ public class PromotionController : ControllerBase
     
     // ──────────── Admin ────────────
     [HttpGet("admin/all")]
-    public async Task<IActionResult> AdminGetAll()
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> 
+        AdminGetAll()
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
         var res = await _promotionLN.ObtenerTodasAsync(userId);
@@ -55,6 +60,7 @@ public class PromotionController : ControllerBase
     }
 
     [HttpPost("admin")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> AdminCreate([FromBody] TCreatePromotion datos)
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -63,6 +69,7 @@ public class PromotionController : ControllerBase
     }
 
     [HttpPut("admin/{id:guid}/toggle")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> AdminToggle(Guid id)
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -71,6 +78,7 @@ public class PromotionController : ControllerBase
     }
 
     [HttpPost("admin/grant/{userId:guid}")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> AdminGrant(Guid userId, [FromBody] TCreatePromotion datos)
     {
         if (!TryGetUserId(out var adminId)) return Unauthorized();
@@ -79,6 +87,7 @@ public class PromotionController : ControllerBase
     }
 
     [HttpGet("admin/users/{userId:guid}/claims")]
+    [Authorize(Roles = "admin")]
     public async Task<IActionResult> AdminGetUserClaims(Guid userId)
     {
         if (!TryGetUserId(out var adminId)) return Unauthorized();
