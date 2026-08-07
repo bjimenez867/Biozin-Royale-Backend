@@ -29,6 +29,7 @@ builder.Services.AddScoped<IProfileLN, ProfileLN>();
 builder.Services.AddScoped<IGamesHistoryLN, GamesHistoryLN>();
 builder.Services.AddScoped<IWalletLN, WalletLN>();
 builder.Services.AddScoped<IBetsLN, BetsLN>();
+builder.Services.AddScoped<ISlotsLN, SlotsLN>();
 builder.Services.AddScoped<IPromotionLN, PromotionLN>();
 builder.Services.AddScoped<IReportesLN, ReportesLN>();
 builder.Services.AddScoped<IDepositosLN, DepositosLN>();
