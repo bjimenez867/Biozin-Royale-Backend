@@ -9,5 +9,6 @@ public class TWalletTransaccionResultado
     public decimal BalanceBefore { get; set; }
     public decimal BalanceAfter { get; set; }
     public string? ReferenceType { get; set; }
+    public string? ReceiptNumber { get; set; }
     public DateTime CreatedAt { get; set; }
 }

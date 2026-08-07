@@ -43,6 +43,19 @@ namespace Biozin_Royale_Backend.Dominio.InterfacesLN
             string correoRemitente
         );
 
+        Task EnviarComprobanteTransaccionAsync(
+            string correoDestino,
+            string nombre,
+            string receiptNumber,
+            string tipo,
+            decimal monto,
+            decimal balanceAntes,
+            decimal balanceDespues,
+            string estado,
+            DateTime fecha,
+            string correoRemitente
+        );
+
     }
 
 }

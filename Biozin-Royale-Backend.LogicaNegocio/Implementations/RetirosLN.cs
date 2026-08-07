@@ -16,12 +16,14 @@ public class RetirosLN : IRetirosLN
     private readonly IUnitWork          _unitOfWork;
     private readonly IConfiguration     _config;
     private readonly IHttpClientFactory _httpFactory;
+    private readonly IEmailService      _emailService;
 
-    public RetirosLN(IUnitWork unitOfWork, IConfiguration config, IHttpClientFactory httpFactory)
+    public RetirosLN(IUnitWork unitOfWork, IConfiguration config, IHttpClientFactory httpFactory, IEmailService emailService)
     {
-        _unitOfWork  = unitOfWork;
-        _config      = config;
-        _httpFactory = httpFactory;
+        _unitOfWork   = unitOfWork;
+        _config       = config;
+        _httpFactory  = httpFactory;
+        _emailService = emailService;
     }
 
     public async Task<Response<TRetiroResultado>> ProcesarRetiroAsync(Guid userId, TIniciarRetiroRequest request)
@@ -106,7 +108,9 @@ public class RetirosLN : IRetirosLN
         _unitOfWork.Wallets.Modificar(wallet);
         _unitOfWork.Completar();
 
-        resultado.ReturnValue = new TRetiroResultado { TransactionId = tx.Id, NewBalance = wallet.Balance };
+        EnviarComprobanteAsync(wallet, tx, "completed");
+
+        resultado.ReturnValue = new TRetiroResultado { TransactionId = tx.Id, NewBalance = wallet.Balance, ReceiptNumber = tx.ReceiptNumber };
         return resultado;
     }
 
@@ -129,11 +133,39 @@ public class RetirosLN : IRetirosLN
 
         _unitOfWork.Completar();
 
-        resultado.ReturnValue = new TRetiroResultado { TransactionId = tx.Id, NewBalance = wallet.Balance };
+        EnviarComprobanteAsync(wallet, tx, "pending");
+
+        resultado.ReturnValue = new TRetiroResultado { TransactionId = tx.Id, NewBalance = wallet.Balance, ReceiptNumber = tx.ReceiptNumber };
         return resultado;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private void EnviarComprobanteAsync(Wallet wallet, WalletTransaction tx, string estado)
+    {
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == wallet.UserId).ReturnValue;
+        if (perfil is null || string.IsNullOrEmpty(perfil.Email)) return;
+
+        var remitente = _config["Mail:Remitente"] ?? _config["Mail:Usuario"]!;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _emailService.EnviarComprobanteTransaccionAsync(
+                    correoDestino:   perfil.Email,
+                    nombre:          perfil.DisplayName ?? perfil.Username,
+                    receiptNumber:   tx.ReceiptNumber ?? "–",
+                    tipo:            "withdrawal",
+                    monto:           tx.Amount,
+                    balanceAntes:    tx.BalanceBefore,
+                    balanceDespues:  tx.BalanceAfter,
+                    estado:          estado,
+                    fecha:           tx.CreatedAt,
+                    correoRemitente: remitente);
+            }
+            catch { /* no propagar */ }
+        });
+    }
 
     private static WalletTransaction CrearTransaccion(
         Wallet wallet, string referenceType, string metadata, decimal amount) => new()
@@ -147,6 +179,7 @@ public class RetirosLN : IRetirosLN
         BalanceAfter    = Math.Round(wallet.Balance - amount, 2),
         ReferenceType   = referenceType,
         Metadata        = metadata,
+        ReceiptNumber   = ReceiptGenerator.Generate(),
         CreatedAt       = DateTime.UtcNow,
     };
 

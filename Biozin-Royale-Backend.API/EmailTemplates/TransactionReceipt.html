@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprobante de Transacción – Biozin Royale</title>
+</head>
+
+<body style="margin:0; padding:0; background-color:#050505; font-family:Arial, Helvetica, sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#050505; padding:30px 12px;">
+    <tr>
+        <td align="center">
+
+            <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background:#0B0B0B; border:1px solid #B8860B; border-radius:18px; overflow:hidden; box-shadow:0 0 30px rgba(212,175,55,0.18);">
+
+                <!-- HEADER -->
+                <tr>
+                    <td style="background:linear-gradient(135deg,#050505,#111111,#1A1A1A); padding:34px 26px; text-align:center; border-bottom:1px solid #B8860B;">
+                        <img src="{logoUrl}" alt="Biozin Royale" width="260" style="display:block; margin:0 auto; max-width:260px;">
+                        <div style="width:100px; height:1px; background:#D4AF37; margin:16px auto 0 auto;"></div>
+                    </td>
+                </tr>
+
+                <!-- CONTENIDO -->
+                <tr>
+                    <td style="padding:36px 32px; color:#F5F5F5;">
+
+                        <h2 style="margin:0 0 6px 0; color:#D4AF37; font-size:22px; font-weight:bold; text-align:center;">
+                            Comprobante de Transacción
+                        </h2>
+                        <p style="margin:0 0 28px 0; color:#888; font-size:13px; text-align:center;">
+                            Guardá este correo como respaldo de tu operación.
+                        </p>
+
+                        <p style="margin:0 0 22px 0; font-size:15px; color:#cccccc;">
+                            Hola, <strong style="color:#F5F5F5;">{nombre}</strong>. Tu transacción fue registrada exitosamente.
+                        </p>
+
+                        <!-- Número de comprobante destacado -->
+                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;">
+                            <tr>
+                                <td style="background:#111111; border:1.5px solid #B8860B; border-radius:12px; padding:18px 20px; text-align:center;">
+                                    <p style="margin:0 0 4px 0; font-size:11px; color:#888; letter-spacing:1.5px; text-transform:uppercase;">Número de Comprobante</p>
+                                    <p style="margin:0; font-size:22px; font-weight:bold; color:#D4AF37; letter-spacing:2px; font-family:'Courier New', monospace;">
+                                        {receiptNumber}
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Detalle de la transacción -->
+                        <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:12px; overflow:hidden; margin-bottom:26px;">
+
+                            <tr>
+                                <td style="background:#141414; padding:13px 18px; border-bottom:1px solid #1e1e1e;">
+                                    <table width="100%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td style="font-size:13px; color:#888;">Tipo</td>
+                                            <td style="font-size:14px; color:#F5F5F5; font-weight:600; text-align:right;">{tipo}</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="background:#111111; padding:13px 18px; border-bottom:1px solid #1e1e1e;">
+                                    <table width="100%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td style="font-size:13px; color:#888;">Monto</td>
+                                            <td style="font-size:18px; font-weight:bold; color:#D4AF37; text-align:right;">{monto}</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="background:#141414; padding:13px 18px; border-bottom:1px solid #1e1e1e;">
+                                    <table width="100%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td style="font-size:13px; color:#888;">Balance anterior</td>
+                                            <td style="font-size:14px; color:#cccccc; text-align:right;">{balanceAntes}</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="background:#111111; padding:13px 18px; border-bottom:1px solid #1e1e1e;">
+                                    <table width="100%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td style="font-size:13px; color:#888;">Balance resultante</td>
+                                            <td style="font-size:14px; color:#F5F5F5; font-weight:600; text-align:right;">{balanceDespues}</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="background:#141414; padding:13px 18px; border-bottom:1px solid #1e1e1e;">
+                                    <table width="100%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td style="font-size:13px; color:#888;">Estado</td>
+                                            <td style="font-size:13px; font-weight:700; color:{colorEstado}; text-align:right;">{estado}</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="background:#111111; padding:13px 18px;">
+                                    <table width="100%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td style="font-size:13px; color:#888;">Fecha</td>
+                                            <td style="font-size:13px; color:#cccccc; text-align:right;">{fecha}</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                        </table>
+
+                        <p style="margin:0 0 6px 0; font-size:13px; color:#777; text-align:center; line-height:1.6;">
+                            Si no reconocés esta transacción, contactá a soporte de inmediato desde la app.
+                        </p>
+
+                    </td>
+                </tr>
+
+                <!-- FOOTER -->
+                <tr>
+                    <td style="background:#070707; border-top:1px solid #1e1e1e; padding:20px 32px; text-align:center;">
+                        <p style="margin:0; font-size:11px; color:#444;">
+                            © {anio} Biozin Royale · Todos los derechos reservados
+                        </p>
+                        <p style="margin:6px 0 0 0; font-size:10px; color:#333;">
+                            Este correo fue enviado automáticamente. Por favor no respondas a este mensaje.
+                        </p>
+                    </td>
+                </tr>
+
+            </table>
+
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

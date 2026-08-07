@@ -7,4 +7,5 @@ public class TIniciarDepositoResultado
     public string? ClientSecret  { get; set; }
     public string? OrderId       { get; set; }
     public decimal BalanceBefore { get; set; }
+    public string? ReceiptNumber { get; set; }
 }

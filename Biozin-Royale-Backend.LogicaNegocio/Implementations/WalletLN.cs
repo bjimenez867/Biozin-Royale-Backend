@@ -48,14 +48,15 @@ public class WalletLN : IWalletLN
 
         resultado.ReturnValue = movimientos.Select(t => new TWalletTransaccionResultado
         {
-            Id = t.Id,
+            Id              = t.Id,
             TransactionType = t.TransactionType,
-            Status = t.Status,
-            Amount = t.Amount,
-            BalanceBefore = t.BalanceBefore,
-            BalanceAfter = t.BalanceAfter,
-            ReferenceType = t.ReferenceType,
-            CreatedAt = t.CreatedAt
+            Status          = t.Status,
+            Amount          = t.Amount,
+            BalanceBefore   = t.BalanceBefore,
+            BalanceAfter    = t.BalanceAfter,
+            ReferenceType   = t.ReferenceType,
+            ReceiptNumber   = t.ReceiptNumber,
+            CreatedAt       = t.CreatedAt,
         });
 
         return Task.FromResult(resultado);
@@ -132,6 +133,7 @@ public class WalletLN : IWalletLN
                 CreatedAt       = t.CreatedAt,
                 Username        = perfil?.Username    ?? "–",
                 DisplayName     = perfil?.DisplayName ?? "–",
+                ReceiptNumber   = t.ReceiptNumber,
             };
         });
 

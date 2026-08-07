@@ -12,5 +12,6 @@ public class WalletTransaction
     public string? ReferenceType { get; set; }
     public Guid? ReferenceId { get; set; }
     public string? Metadata { get; set; }
+    public string? ReceiptNumber { get; set; }
     public DateTime CreatedAt { get; set; }
 }
