@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using System.Security.Cryptography;
 using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
@@ -10,6 +11,94 @@ namespace Biozin_Royale_Backend.LogicaNegocio.Implementations;
 public class AuthLN : IAuthLN
 {
     private const int MinPasswordLength = 8;
+    private const int MaxIntentosFallidos = 5;
+    private const int MinutosBloqueo = 15;
+
+    private static string GenerarCodigoSeguro() => RandomNumberGenerator.GetInt32(100_000, 1_000_000).ToString();
+
+    // Bloqueo temporal por fuerza bruta (login y 2FA comparten el mismo contador:
+    // ambos son intentos de autenticarse en la misma cuenta).
+    private static bool EstaBloqueado(Profile perfil, out string mensaje)
+    {
+        if (perfil.LockedUntil is not null && perfil.LockedUntil > DateTime.UtcNow)
+        {
+            var minutos = Math.Max(1, (int)Math.Ceiling((perfil.LockedUntil.Value - DateTime.UtcNow).TotalMinutes));
+            mensaje = $"Demasiados intentos fallidos. Intenta de nuevo en {minutos} minuto(s).";
+            return true;
+        }
+        mensaje = string.Empty;
+        return false;
+    }
+
+    private void RegistrarIntentoFallido(Profile perfil)
+    {
+        perfil.FailedLoginAttempts++;
+        if (perfil.FailedLoginAttempts >= MaxIntentosFallidos)
+        {
+            perfil.LockedUntil = DateTime.UtcNow.AddMinutes(MinutosBloqueo);
+            perfil.FailedLoginAttempts = 0;
+            RegistrarEvento(perfil.Id, "account_locked");
+        }
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+    }
+
+    private void RestablecerIntentosFallidos(Profile perfil)
+    {
+        if (perfil.FailedLoginAttempts == 0 && perfil.LockedUntil is null) return;
+
+        perfil.FailedLoginAttempts = 0;
+        perfil.LockedUntil = null;
+        _unitOfWork.Profiles.Modificar(perfil);
+        _unitOfWork.Completar();
+    }
+
+    // Overloads para StaffMember: RestablecerPasswordAsync maneja el reset de staff
+    // directamente (no delega en StaffLN), así que necesita su propio bloqueo aquí.
+    private static bool EstaBloqueado(StaffMember staff, out string mensaje)
+    {
+        if (staff.LockedUntil is not null && staff.LockedUntil > DateTime.UtcNow)
+        {
+            var minutos = Math.Max(1, (int)Math.Ceiling((staff.LockedUntil.Value - DateTime.UtcNow).TotalMinutes));
+            mensaje = $"Demasiados intentos fallidos. Intenta de nuevo en {minutos} minuto(s).";
+            return true;
+        }
+        mensaje = string.Empty;
+        return false;
+    }
+
+    private void RegistrarIntentoFallido(StaffMember staff)
+    {
+        staff.FailedLoginAttempts++;
+        if (staff.FailedLoginAttempts >= MaxIntentosFallidos)
+        {
+            staff.LockedUntil = DateTime.UtcNow.AddMinutes(MinutosBloqueo);
+            staff.FailedLoginAttempts = 0;
+            _unitOfWork.SecurityEvents.Insertar(new SecurityEvent
+            {
+                Id = Guid.NewGuid(),
+                StaffId = staff.Id,
+                EventType = "account_locked",
+                CreatedAt = DateTime.UtcNow,
+            });
+        }
+        staff.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.StaffMembers.Modificar(staff);
+        _unitOfWork.Completar();
+    }
+
+    private void RestablecerIntentosFallidos(StaffMember staff)
+    {
+        if (staff.FailedLoginAttempts == 0 && staff.LockedUntil is null) return;
+
+        staff.FailedLoginAttempts = 0;
+        staff.LockedUntil = null;
+        _unitOfWork.StaffMembers.Modificar(staff);
+        _unitOfWork.Completar();
+    }
 
     private readonly IUnitWork _unitOfWork;
     private readonly IConfiguration _configuration;
@@ -125,13 +214,31 @@ public class AuthLN : IAuthLN
         }
 
         var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNormalizado).ReturnValue;
-        if (perfil is null || perfil.Password is null || !BCrypt.Net.BCrypt.Verify(password, perfil.Password))
+        var credencialesValidas = perfil is not null && perfil.Password is not null
+            && BCrypt.Net.BCrypt.Verify(password, perfil.Password);
+
+        if (!credencialesValidas)
         {
+            // Si ya está bloqueada no se sigue contando: el bloqueo tiene duración fija.
+            if (perfil is not null && perfil.Password is not null && !EstaBloqueado(perfil, out _))
+            {
+                RegistrarIntentoFallido(perfil);
+            }
             resultado.lpError("Credenciales inválidas", "El correo o la contraseña son incorrectos.");
             return resultado;
         }
 
-        if (!perfil.EmailVerified)
+        // Mismo título "Cuenta bloqueada" que el bloqueo administrativo: el frontend
+        // ya sabe mostrarlo en el banner dedicado sin distinguir el origen.
+        if (EstaBloqueado(perfil!, out var mensajeBloqueo))
+        {
+            resultado.lpError("Cuenta bloqueada", mensajeBloqueo);
+            return resultado;
+        }
+
+        RestablecerIntentosFallidos(perfil!);
+
+        if (!perfil!.EmailVerified)
         {
             resultado.lpError("Email no verificado", "Debes verificar tu correo electrónico antes de iniciar sesión.");
             return resultado;
@@ -161,7 +268,7 @@ public class AuthLN : IAuthLN
     {
         var remitente = _configuration["Mail:Remitente"] ?? "no-reply@biozinroyale.com";
 
-        var codigo = Random.Shared.Next(100_000, 1_000_000).ToString();
+        var codigo = GenerarCodigoSeguro();
         perfil.TwoFactorCode = BCrypt.Net.BCrypt.HashPassword(codigo);
         perfil.TwoFactorCodeExpiresAt = DateTime.UtcNow.AddMinutes(10);
         perfil.UpdatedAt = DateTime.UtcNow;
@@ -198,6 +305,12 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
+        if (EstaBloqueado(perfil, out var mensajeBloqueo))
+        {
+            resultado.lpError("Cuenta bloqueada", mensajeBloqueo);
+            return resultado;
+        }
+
         if (DateTime.UtcNow > perfil.TwoFactorCodeExpiresAt)
         {
             resultado.lpError("Código expirado", "El código de verificación ha expirado. Solicita uno nuevo.");
@@ -206,9 +319,12 @@ public class AuthLN : IAuthLN
 
         if (!BCrypt.Net.BCrypt.Verify(code.Trim(), perfil.TwoFactorCode))
         {
+            RegistrarIntentoFallido(perfil);
             resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
             return resultado;
         }
+
+        RestablecerIntentosFallidos(perfil);
 
         perfil.TwoFactorCode = null;
         perfil.TwoFactorCodeExpiresAt = null;
@@ -401,7 +517,7 @@ public class AuthLN : IAuthLN
                 return resultado;
             }
 
-            var codigoStaff = Random.Shared.Next(100_000, 1_000_000).ToString();
+            var codigoStaff = GenerarCodigoSeguro();
             staff.ResetCode = BCrypt.Net.BCrypt.HashPassword(codigoStaff);
             staff.ResetCodeExpiresAt = DateTime.UtcNow.AddMinutes(15);
             staff.UpdatedAt = DateTime.UtcNow;
@@ -447,7 +563,7 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
-        var codigo = Random.Shared.Next(100_000, 1_000_000).ToString();
+        var codigo = GenerarCodigoSeguro();
         perfil.ResetCode = BCrypt.Net.BCrypt.HashPassword(codigo);
         perfil.ResetCodeExpiresAt = DateTime.UtcNow.AddMinutes(15);
         perfil.UpdatedAt = DateTime.UtcNow;
@@ -499,6 +615,12 @@ public class AuthLN : IAuthLN
                 return Task.FromResult(resultado);
             }
 
+            if (EstaBloqueado(staff, out var mensajeBloqueoStaff))
+            {
+                resultado.lpError("Cuenta bloqueada", mensajeBloqueoStaff);
+                return Task.FromResult(resultado);
+            }
+
             if (DateTime.UtcNow > staff.ResetCodeExpiresAt)
             {
                 resultado.lpError("Código expirado", "El código de recuperación ha expirado. Solicita uno nuevo.");
@@ -507,9 +629,12 @@ public class AuthLN : IAuthLN
 
             if (!BCrypt.Net.BCrypt.Verify(code.Trim(), staff.ResetCode))
             {
+                RegistrarIntentoFallido(staff);
                 resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
                 return Task.FromResult(resultado);
             }
+
+            RestablecerIntentosFallidos(staff);
 
             staff.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             staff.ResetCode = null;
@@ -533,6 +658,12 @@ public class AuthLN : IAuthLN
             return Task.FromResult(resultado);
         }
 
+        if (EstaBloqueado(perfil, out var mensajeBloqueoPerfil))
+        {
+            resultado.lpError("Cuenta bloqueada", mensajeBloqueoPerfil);
+            return Task.FromResult(resultado);
+        }
+
         if (DateTime.UtcNow > perfil.ResetCodeExpiresAt)
         {
             resultado.lpError("Código expirado", "El código de recuperación ha expirado. Solicita uno nuevo.");
@@ -541,9 +672,12 @@ public class AuthLN : IAuthLN
 
         if (!BCrypt.Net.BCrypt.Verify(code.Trim(), perfil.ResetCode))
         {
+            RegistrarIntentoFallido(perfil);
             resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
             return Task.FromResult(resultado);
         }
+
+        RestablecerIntentosFallidos(perfil);
 
         perfil.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
         perfil.ResetCode = null;
@@ -583,7 +717,7 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
-        var codigo = Random.Shared.Next(100_000, 1_000_000).ToString();
+        var codigo = GenerarCodigoSeguro();
         perfil.VerifyCode = BCrypt.Net.BCrypt.HashPassword(codigo);
         perfil.VerifyCodeExpiresAt = DateTime.UtcNow.AddMinutes(15);
         perfil.UpdatedAt = DateTime.UtcNow;

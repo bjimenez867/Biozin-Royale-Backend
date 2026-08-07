@@ -11,6 +11,8 @@ namespace Biozin_Royale_Backend.LogicaNegocio.Implementations;
 public class StaffLN : IStaffLN
 {
     private static readonly string[] RolesValidos = { "admin", "soporte" };
+    private const int MaxIntentosFallidos = 5;
+    private const int MinutosBloqueo = 15;
 
     private readonly IUnitWork _unitOfWork;
     private readonly IConfiguration _configuration;
@@ -102,15 +104,70 @@ public class StaffLN : IStaffLN
         var resultado = new Response<TPerfilResultado>();
 
         var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Email == email).ReturnValue;
-        if (staff is null || !BCrypt.Net.BCrypt.Verify(password, staff.PasswordHash))
+        var credencialesValidas = staff is not null && BCrypt.Net.BCrypt.Verify(password, staff.PasswordHash);
+
+        if (!credencialesValidas)
         {
+            // Si ya está bloqueado no se sigue contando: el bloqueo tiene duración fija.
+            if (staff is not null && !EstaBloqueado(staff, out _))
+            {
+                RegistrarIntentoFallido(staff);
+            }
             resultado.lpError("Credenciales inválidas", "El correo o la contraseña son incorrectos.");
             return Task.FromResult(resultado);
         }
 
-        var token = GenerarTokenConSesion(staff, userAgent, ipAddress);
-        resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token);
+        if (EstaBloqueado(staff!, out var mensajeBloqueo))
+        {
+            resultado.lpError("Cuenta bloqueada", mensajeBloqueo);
+            return Task.FromResult(resultado);
+        }
+
+        RestablecerIntentosFallidos(staff!);
+
+        var token = GenerarTokenConSesion(staff!, userAgent, ipAddress);
+        resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff!, token);
         return Task.FromResult(resultado);
+    }
+
+    // Mismo mecanismo que AuthLN, duplicado aquí porque Profile y StaffMember no
+    // comparten un tipo base (StaffLN tampoco comparte otras utilidades con AuthLN,
+    // ej. RegistrarEvento ya está duplicado abajo).
+    private static bool EstaBloqueado(StaffMember staff, out string mensaje)
+    {
+        if (staff.LockedUntil is not null && staff.LockedUntil > DateTime.UtcNow)
+        {
+            var minutos = Math.Max(1, (int)Math.Ceiling((staff.LockedUntil.Value - DateTime.UtcNow).TotalMinutes));
+            mensaje = $"Demasiados intentos fallidos. Intenta de nuevo en {minutos} minuto(s).";
+            return true;
+        }
+        mensaje = string.Empty;
+        return false;
+    }
+
+    private void RegistrarIntentoFallido(StaffMember staff)
+    {
+        staff.FailedLoginAttempts++;
+        if (staff.FailedLoginAttempts >= MaxIntentosFallidos)
+        {
+            staff.LockedUntil = DateTime.UtcNow.AddMinutes(MinutosBloqueo);
+            staff.FailedLoginAttempts = 0;
+            RegistrarEvento(staff.Id, "account_locked");
+        }
+        staff.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.StaffMembers.Modificar(staff);
+        _unitOfWork.Completar();
+    }
+
+    private void RestablecerIntentosFallidos(StaffMember staff)
+    {
+        if (staff.FailedLoginAttempts == 0 && staff.LockedUntil is null) return;
+
+        staff.FailedLoginAttempts = 0;
+        staff.LockedUntil = null;
+        _unitOfWork.StaffMembers.Modificar(staff);
+        _unitOfWork.Completar();
     }
 
     // Mismo patrón que AuthLN.GenerarTokenConSesion: captura el jti para poder listarlo/

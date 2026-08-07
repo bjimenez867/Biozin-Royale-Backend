@@ -4,7 +4,7 @@ using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.TypedEntities;
 
-namespace Biozin_Royale_Backend.API;
+namespace Biozin_Royale_Backend.API.BackgroundServices;
 
 /// Liquida apuestas deportivas pendientes contra los resultados de the-odds-api.
 /// Corre cada 10 min; solo llama a la API si hay selecciones pendientes cuyo
