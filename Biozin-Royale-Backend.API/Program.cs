@@ -12,6 +12,7 @@ using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
 using Biozin_Royale_Backend.LogicaNegocio.Implementations;
 using Biozin_Royale_Backend.API.Auth;
+using Biozin_Royale_Backend.API.BackgroundServices;
 
 QuestPDF.Settings.License = LicenseType.Community;
 
@@ -72,7 +73,8 @@ builder.Services.AddHttpClient("OddsApi", client =>
     client.Timeout = TimeSpan.FromSeconds(10);
 });
 builder.Services.AddSingleton<ISportsLN, SportsLN>();
-builder.Services.AddHostedService<Biozin_Royale_Backend.API.BetSettlementService>();
+builder.Services.AddHostedService<BetSettlementService>();
+builder.Services.AddHostedService<BonusExpirationService>();
 
 var supabaseUrl = builder.Configuration["Supabase:Url"]!;
 var supabaseIssuer = $"{supabaseUrl}/auth/v1";
