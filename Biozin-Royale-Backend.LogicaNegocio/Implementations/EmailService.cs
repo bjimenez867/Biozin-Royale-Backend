@@ -237,6 +237,82 @@ namespace Biozin_Royale_Backend.LogicaNegocio.Implementations
             await smtp.DisconnectAsync(true, cts.Token);
         }
 
+        public async Task EnviarComprobanteTransaccionAsync(
+            string correoDestino,
+            string nombre,
+            string receiptNumber,
+            string tipo,
+            decimal monto,
+            decimal balanceAntes,
+            decimal balanceDespues,
+            string estado,
+            DateTime fecha,
+            string correoRemitente)
+        {
+            var mensaje = new MimeMessage();
+            mensaje.From.Add(new MailboxAddress("Biozin Royale", correoRemitente));
+            mensaje.To.Add(MailboxAddress.Parse(correoDestino));
+            mensaje.Subject = $"Comprobante {receiptNumber} – Biozin Royale";
+
+            var builder = new BodyBuilder();
+
+            string ruta = Path.Combine(Directory.GetCurrentDirectory(), "EmailTemplates", "TransactionReceipt.html");
+            string html = File.ReadAllText(ruta);
+
+            var rutaLogo = Path.Combine(Directory.GetCurrentDirectory(), "EmailTemplates", "Biozin_logo.png");
+            if (File.Exists(rutaLogo))
+            {
+                var imagen = builder.LinkedResources.Add(rutaLogo);
+                imagen.ContentId = "logo-biozin";
+                html = html.Replace("{logoUrl}", $"cid:{imagen.ContentId}");
+            }
+            else
+            {
+                html = html.Replace("{logoUrl}", string.Empty);
+            }
+
+            var tipoLabel  = tipo == "deposit" ? "Depósito" : "Retiro";
+            var estadoLabel = estado switch
+            {
+                "completed" => "Completado",
+                "pending"   => "En proceso",
+                "failed"    => "Fallido",
+                _           => estado,
+            };
+            var colorEstado = estado switch
+            {
+                "completed" => "#4fd190",
+                "pending"   => "#e7c86b",
+                _           => "#e06a6a",
+            };
+            var signo = tipo == "deposit" ? "+" : "-";
+
+            html = html.Replace("{nombre}",          nombre);
+            html = html.Replace("{receiptNumber}",   receiptNumber);
+            html = html.Replace("{tipo}",            tipoLabel);
+            html = html.Replace("{monto}",           $"{signo}${Math.Abs(monto):F2}");
+            html = html.Replace("{balanceAntes}",    $"${balanceAntes:F2}");
+            html = html.Replace("{balanceDespues}",  $"${balanceDespues:F2}");
+            html = html.Replace("{estado}",          estadoLabel);
+            html = html.Replace("{colorEstado}",     colorEstado);
+            html = html.Replace("{fecha}",           fecha.ToString("dd MMM yyyy · HH:mm 'UTC'", new System.Globalization.CultureInfo("es-CR")));
+            html = html.Replace("{anio}",            DateTime.Now.Year.ToString());
+
+            builder.HtmlBody = html;
+            mensaje.Body = builder.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            await smtp.ConnectAsync(
+                _config["Mail:Smtp"]!,
+                (int.TryParse(_config["Mail:Puerto"], out var smtpPuerto) ? smtpPuerto : 587),
+                MailKit.Security.SecureSocketOptions.StartTls,
+                cts.Token);
+            await smtp.AuthenticateAsync(_config["Mail:Usuario"]!, _config["Mail:Password"]!, cts.Token);
+            await smtp.SendAsync(mensaje, cts.Token);
+            await smtp.DisconnectAsync(true, cts.Token);
+        }
+
         public async Task EnviarAutoReplyTicketAsync(
             string correoDestino,
             string nombre,

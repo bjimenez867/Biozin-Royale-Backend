@@ -16,12 +16,14 @@ public class DepositosLN : IDepositosLN
     private readonly IUnitWork          _unitOfWork;
     private readonly IConfiguration     _config;
     private readonly IHttpClientFactory _httpFactory;
+    private readonly IEmailService      _emailService;
 
-    public DepositosLN(IUnitWork unitOfWork, IConfiguration config, IHttpClientFactory httpFactory)
+    public DepositosLN(IUnitWork unitOfWork, IConfiguration config, IHttpClientFactory httpFactory, IEmailService emailService)
     {
-        _unitOfWork  = unitOfWork;
-        _config      = config;
-        _httpFactory = httpFactory;
+        _unitOfWork   = unitOfWork;
+        _config       = config;
+        _httpFactory  = httpFactory;
+        _emailService = emailService;
         StripeConfiguration.ApiKey = _config["Payments:Stripe:SecretKey"]!;
     }
 
@@ -70,6 +72,7 @@ public class DepositosLN : IDepositosLN
             BalanceAfter    = wallet.Balance + amount,
             ReferenceType   = "stripe",
             Metadata        = intent.Id,
+            ReceiptNumber   = ReceiptGenerator.Generate(),
             CreatedAt       = DateTime.UtcNow,
         };
         _unitOfWork.WalletTransactions.Insertar(tx);
@@ -81,6 +84,7 @@ public class DepositosLN : IDepositosLN
             Provider      = "stripe",
             ClientSecret  = intent.ClientSecret,
             BalanceBefore = wallet.Balance,
+            ReceiptNumber = tx.ReceiptNumber,
         };
         return resultado;
     }
@@ -97,7 +101,7 @@ public class DepositosLN : IDepositosLN
             if (stripeEvent.Type == EventTypes.PaymentIntentSucceeded)
             {
                 var intent = (PaymentIntent)stripeEvent.Data.Object;
-                ConfirmarDepositoInterno(intent.Id, "stripe");
+                await ConfirmarDepositoInternoAsync(intent.Id, "stripe");
             }
         }
         catch (StripeException)
@@ -148,6 +152,7 @@ public class DepositosLN : IDepositosLN
             BalanceAfter    = wallet.Balance + amount,
             ReferenceType   = "paypal",
             Metadata        = orderId,
+            ReceiptNumber   = ReceiptGenerator.Generate(),
             CreatedAt       = DateTime.UtcNow,
         };
         _unitOfWork.WalletTransactions.Insertar(tx);
@@ -159,6 +164,7 @@ public class DepositosLN : IDepositosLN
             Provider      = "paypal",
             OrderId       = orderId,
             BalanceBefore = wallet.Balance,
+            ReceiptNumber = tx.ReceiptNumber,
         };
         return resultado;
     }
@@ -181,7 +187,7 @@ public class DepositosLN : IDepositosLN
             return resultado;
         }
 
-        var nuevoBalance = ConfirmarDepositoInterno(orderId, "paypal");
+        var nuevoBalance = await ConfirmarDepositoInternoAsync(orderId, "paypal");
         if (nuevoBalance is null)
         {
             resultado.lpError("PayPal", "Pago capturado pero no se encontró la transacción pendiente.");
@@ -193,7 +199,7 @@ public class DepositosLN : IDepositosLN
 
     // ── Interno ───────────────────────────────────────────────────────────────
 
-    private decimal? ConfirmarDepositoInterno(string externalId, string provider)
+    private async Task<decimal?> ConfirmarDepositoInternoAsync(string externalId, string provider)
     {
         var tx = _unitOfWork.WalletTransactions
             .ObtenerEntidad(t => t.Metadata == externalId
@@ -203,6 +209,7 @@ public class DepositosLN : IDepositosLN
 
         if (tx is null) return null;
 
+        var balanceAntes = tx.BalanceBefore;
         tx.Status = "completed";
         _unitOfWork.WalletTransactions.Modificar(tx);
 
@@ -211,6 +218,31 @@ public class DepositosLN : IDepositosLN
         wallet.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Wallets.Modificar(wallet);
         _unitOfWork.Completar();
+
+        // Enviar comprobante por email (fire-and-forget; no bloquea la respuesta)
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == wallet.UserId).ReturnValue;
+        if (perfil is not null && !string.IsNullOrEmpty(perfil.Email))
+        {
+            var remitente = _config["Mail:Remitente"] ?? _config["Mail:Usuario"]!;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _emailService.EnviarComprobanteTransaccionAsync(
+                        correoDestino:   perfil.Email,
+                        nombre:          perfil.DisplayName ?? perfil.Username,
+                        receiptNumber:   tx.ReceiptNumber ?? "–",
+                        tipo:            "deposit",
+                        monto:           tx.Amount,
+                        balanceAntes:    balanceAntes,
+                        balanceDespues:  wallet.Balance,
+                        estado:          "completed",
+                        fecha:           tx.CreatedAt,
+                        correoRemitente: remitente);
+                }
+                catch { /* no propagar: el depósito ya fue procesado */ }
+            });
+        }
 
         return wallet.Balance;
     }

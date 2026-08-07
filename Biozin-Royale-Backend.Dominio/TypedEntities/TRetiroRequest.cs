@@ -10,4 +10,5 @@ public class TRetiroResultado
 {
     public Guid    TransactionId { get; set; }
     public decimal NewBalance    { get; set; }
+    public string? ReceiptNumber { get; set; }
 }
