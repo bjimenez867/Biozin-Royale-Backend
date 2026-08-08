@@ -82,6 +82,8 @@ var supabaseIssuer = $"{supabaseUrl}/auth/v1";
 var localIssuer = builder.Configuration["Jwt:LocalIssuer"]!;
 var localSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:LocalSigningKey"]!));
 var supabaseJwks = new SupabaseJwksProvider(supabaseUrl);
+builder.Services.AddSingleton(supabaseJwks);
+builder.Services.AddHostedService<JwksRefreshService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
