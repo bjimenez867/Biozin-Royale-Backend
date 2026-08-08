@@ -45,9 +45,8 @@ public class WebhooksController : ControllerBase
     [Consumes("multipart/form-data", "application/x-www-form-urlencoded")]
     public async Task<IActionResult> EmailWebhook([FromForm] MailgunPayload payload)
     {
-        // Verificar firma de Mailgun (solo si la clave está configurada)
         var signingKey = _config["Mailgun:WebhookSigningKey"];
-        if (!string.IsNullOrEmpty(signingKey) && !VerifyMailgunSignature(signingKey, payload))
+        if (string.IsNullOrEmpty(signingKey) || !VerifyMailgunSignature(signingKey, payload))
             return Unauthorized();
 
         // Extraer email del remitente ("Nombre <email>" o "email")
