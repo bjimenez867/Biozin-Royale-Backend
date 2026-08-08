@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using System.Security.Cryptography;
+using System.Text;
 using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
@@ -260,7 +261,8 @@ public class AuthLN : IAuthLN
         }
 
         RegistrarEvento(perfil.Id, "login");
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarTokenConSesion(perfil, userAgent, ipAddress));
+        var (loginToken, loginRefresh) = GenerarTokenConSesion(perfil, userAgent, ipAddress);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, loginToken, loginRefresh);
         return resultado;
     }
 
@@ -334,7 +336,8 @@ public class AuthLN : IAuthLN
         _unitOfWork.Completar();
 
         RegistrarEvento(perfil.Id, "login");
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, GenerarTokenConSesion(perfil, userAgent, ipAddress));
+        var (twoFaToken, twoFaRefresh) = GenerarTokenConSesion(perfil, userAgent, ipAddress);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, twoFaToken, twoFaRefresh);
         return resultado;
     }
 
@@ -796,24 +799,94 @@ public class AuthLN : IAuthLN
 
     // A diferencia de GenerarToken (usado para OAuth/staff, sin sesión rastreable),
     // este helper es para los dos únicos flujos donde emitimos el JWT nosotros mismos
-    // (login manual y verificación de 2FA): genera un jti propio y lo guarda como
-    // Session para poder revocarlo después desde "Sesiones activas".
-    private string GenerarTokenConSesion(Profile perfil, string? userAgent, string? ipAddress)
+    // (login manual y verificación de 2FA): genera un sessionId estable (Session.Id) y
+    // un jti por-token separados; devuelve (accessToken, refreshToken).
+    private (string token, string refreshToken) GenerarTokenConSesion(Profile perfil, string? userAgent, string? ipAddress)
     {
+        var sessionId = Guid.NewGuid();
         var jti = Guid.NewGuid();
-        var token = JwtTokenFactory.GenerarToken(_configuration, perfil.UserId, perfil.Email, "user", jti);
+        var token = JwtTokenFactory.GenerarToken(_configuration, perfil.UserId, perfil.Email, "user", jti, sessionId);
+
+        var refreshRaw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        var refreshHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(refreshRaw)));
 
         _unitOfWork.Sessions.Insertar(new Session
         {
-            Id = jti,
+            Id = sessionId,
             ProfileId = perfil.Id,
             DeviceLabel = DeviceParser.AnalizarUserAgent(userAgent),
             IpAddress = ipAddress,
             CreatedAt = DateTime.UtcNow,
             IsActive = true,
+            RefreshTokenHash = refreshHash,
+            RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(30),
         });
         _unitOfWork.Completar();
 
-        return token;
+        return (token, refreshRaw);
+    }
+
+    public Task<Response<TTokenPar>> RefreshAsync(string refreshToken)
+    {
+        var resultado = new Response<TTokenPar>();
+
+        var hash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
+        var sesion = _unitOfWork.Sessions.ObtenerEntidad(s =>
+            s.RefreshTokenHash == hash && s.IsActive).ReturnValue;
+
+        if (sesion is null || sesion.RefreshTokenExpiresAt is null || sesion.RefreshTokenExpiresAt < DateTime.UtcNow)
+        {
+            resultado.lpError("Token inválido", "El refresh token no es válido o ha expirado.");
+            return Task.FromResult(resultado);
+        }
+
+        Guid userId;
+        string email;
+        string role;
+
+        if (sesion.ProfileId.HasValue)
+        {
+            var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Id == sesion.ProfileId.Value).ReturnValue;
+            if (perfil is null || perfil.Status != "active")
+            {
+                resultado.lpError("Cuenta inactiva", "La cuenta asociada a esta sesión no está activa.");
+                return Task.FromResult(resultado);
+            }
+            userId = perfil.UserId;
+            email = perfil.Email;
+            role = "user";
+        }
+        else if (sesion.StaffId.HasValue)
+        {
+            var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == sesion.StaffId.Value).ReturnValue;
+            if (staff is null || staff.Status != "active")
+            {
+                resultado.lpError("Cuenta inactiva", "La cuenta asociada a esta sesión no está activa.");
+                return Task.FromResult(resultado);
+            }
+            userId = staff.Id;
+            email = staff.Email;
+            role = CredentialsGenerator.DetectRole(staff.Email);
+        }
+        else
+        {
+            resultado.lpError("Token inválido", "La sesión no tiene usuario asociado.");
+            return Task.FromResult(resultado);
+        }
+
+        // Rotación: nuevo access token (nuevo jti, mismo session_id) + nuevo refresh token
+        var newJti = Guid.NewGuid();
+        var newAccessToken = JwtTokenFactory.GenerarToken(_configuration, userId, email, role, newJti, sesion.Id);
+
+        var newRefreshRaw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        var newRefreshHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(newRefreshRaw)));
+
+        sesion.RefreshTokenHash = newRefreshHash;
+        sesion.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(30);
+        _unitOfWork.Sessions.Modificar(sesion);
+        _unitOfWork.Completar();
+
+        resultado.ReturnValue = new TTokenPar { Token = newAccessToken, RefreshToken = newRefreshRaw };
+        return Task.FromResult(resultado);
     }
 }

@@ -7,7 +7,7 @@ namespace Biozin_Royale_Backend.LogicaNegocio.Implementations;
 // necesitan mapear la misma entidad Profile al mismo DTO de respuesta.
 internal static class PerfilMapper
 {
-    public static TPerfilResultado MapearPerfil(Profile perfil, string? token)
+    public static TPerfilResultado MapearPerfil(Profile perfil, string? token, string? refreshToken = null)
     {
         var camposPendientes = new List<string>();
         if (string.IsNullOrWhiteSpace(perfil.Phone)) camposPendientes.Add("phone");
@@ -31,6 +31,7 @@ internal static class PerfilMapper
             PinEnabled = perfil.PinEnabled,
             TwoFactorEnabled = perfil.TwoFactorEnabled,
             Token = token,
+            RefreshToken = refreshToken,
             CamposPendientes = camposPendientes,
             MustVerifyEmail = !perfil.IsGuest && !perfil.EmailVerified,
         };

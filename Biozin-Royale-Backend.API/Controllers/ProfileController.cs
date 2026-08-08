@@ -158,14 +158,15 @@ public class ProfileController : ControllerBase
         return Guid.TryParse(sub, out userId);
     }
 
-    // Tokens propios (login manual/2FA) traen "jti"; los de Supabase (Google) no
-    // traen ese jti pero sí un "session_id" estable — ver AuthLN.SincronizarOAuthAsync.
+    // Tokens nuevos (refactor refresh): session_id es el Id estable de Session.
+    // Tokens OAuth (Supabase/Google): session_id viene del proveedor.
+    // Tokens viejos (antes del refactor): solo traen jti, que era el Session.Id.
     private bool TryGetSessionId(out Guid sessionId)
     {
-        var jti = User.FindFirst("jti")?.Value;
-        if (Guid.TryParse(jti, out sessionId)) return true;
-
         var sessionClaim = User.FindFirst("session_id")?.Value;
-        return Guid.TryParse(sessionClaim, out sessionId);
+        if (Guid.TryParse(sessionClaim, out sessionId)) return true;
+
+        var jti = User.FindFirst("jti")?.Value;
+        return Guid.TryParse(jti, out sessionId);
     }
 }

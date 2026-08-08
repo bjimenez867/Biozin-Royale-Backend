@@ -193,6 +193,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(s => s.CreatedAt).HasColumnName("created_at");
                 entity.Property(s => s.RevokedAt).HasColumnName("revoked_at");
                 entity.Property(s => s.IsActive).HasColumnName("is_active");
+                entity.Property(s => s.RefreshTokenHash).HasColumnName("refresh_token_hash");
+                entity.Property(s => s.RefreshTokenExpiresAt).HasColumnName("refresh_token_expires_at");
                 entity.HasIndex(s => s.ProfileId);
                 entity.HasIndex(s => s.StaffId);
             });

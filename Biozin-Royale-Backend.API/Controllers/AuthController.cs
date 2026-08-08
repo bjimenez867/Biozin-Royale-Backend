@@ -135,6 +135,15 @@ public class AuthController : ControllerBase
         return Ok(resultado);
     }
 
+    [EnableRateLimiting("auth")]
+    [AllowAnonymous]
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] TRefreshToken datos)
+    {
+        var resultado = await _authLN.RefreshAsync(datos.RefreshToken);
+        return resultado.blnError ? Unauthorized(resultado) : Ok(resultado);
+    }
+
     private (string? userAgent, string? ip) ObtenerInfoCliente()
     {
         var userAgent = Request.Headers.UserAgent.ToString();

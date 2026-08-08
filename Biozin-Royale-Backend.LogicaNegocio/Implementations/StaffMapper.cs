@@ -11,6 +11,7 @@ internal static class StaffMapper
     public static TPerfilResultado MapearComoPerfil(
         StaffMember staff,
         string? token,
+        string? refreshToken = null,
         string? tempPassword = null,
         string? createdByName = null)
     {
@@ -28,6 +29,7 @@ internal static class StaffMapper
             IsGuest = false,
             HasPassword = true,
             Token = token,
+            RefreshToken = refreshToken,
             CamposPendientes = new List<string>(),
             TempPassword = tempPassword,
             MustChangePassword = staff.MustChangePassword,

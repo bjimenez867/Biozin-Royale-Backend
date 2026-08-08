@@ -15,4 +15,5 @@ public interface IAuthLN
     Task<Response<bool>> VerificarEmailAsync(string email, string code);
     Task<Response<TPerfilResultado>> VerificarCodigo2FAAsync(string email, string code, string? userAgent, string? ipAddress);
     Task<Response<bool>> ReenviarCodigo2FAAsync(string email);
+    Task<Response<TTokenPar>> RefreshAsync(string refreshToken);
 }
