@@ -181,10 +181,13 @@ public class StaffController : ControllerBase
         return Guid.TryParse(sub, out userId);
     }
 
-    // Tokens de staff traen "jti" (ver StaffLN.GenerarTokenConSesion), igual que los
-    // de login manual de usuario — no hay ruta OAuth/Supabase para staff.
+    // Tokens nuevos (refactor refresh): session_id es el Id estable de Session.
+    // Tokens viejos (antes del refactor): solo traen jti, que era el Session.Id.
     private bool TryGetSessionId(out Guid sessionId)
     {
+        var sessionClaim = User.FindFirst("session_id")?.Value;
+        if (Guid.TryParse(sessionClaim, out sessionId)) return true;
+
         var jti = User.FindFirst("jti")?.Value;
         return Guid.TryParse(jti, out sessionId);
     }

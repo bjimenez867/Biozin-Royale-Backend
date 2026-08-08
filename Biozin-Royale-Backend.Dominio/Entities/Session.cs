@@ -12,4 +12,6 @@ public class Session
     public DateTime CreatedAt { get; set; }
     public DateTime? RevokedAt { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? RefreshTokenHash { get; set; }
+    public DateTime? RefreshTokenExpiresAt { get; set; }
 }

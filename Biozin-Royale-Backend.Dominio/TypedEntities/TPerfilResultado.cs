@@ -17,6 +17,7 @@ public class TPerfilResultado
     public bool PinEnabled { get; set; }
     public bool TwoFactorEnabled { get; set; }
     public string? Token { get; set; }
+    public string? RefreshToken { get; set; }
     public List<string> CamposPendientes { get; set; } = new();
 
     public string? TempPassword { get; set; }

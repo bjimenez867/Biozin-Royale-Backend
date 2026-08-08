@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using System.Security.Cryptography;
+using System.Text;
 using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
@@ -125,8 +127,8 @@ public class StaffLN : IStaffLN
 
         RestablecerIntentosFallidos(staff!);
 
-        var token = GenerarTokenConSesion(staff!, userAgent, ipAddress);
-        resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff!, token);
+        var (staffToken, staffRefresh) = GenerarTokenConSesion(staff!, userAgent, ipAddress);
+        resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff!, staffToken, staffRefresh);
         return Task.FromResult(resultado);
     }
 
@@ -170,26 +172,32 @@ public class StaffLN : IStaffLN
         _unitOfWork.Completar();
     }
 
-    // Mismo patrón que AuthLN.GenerarTokenConSesion: captura el jti para poder listarlo/
-    // revocarlo después desde "Sesiones activas" del admin.
-    private string GenerarTokenConSesion(StaffMember staff, string? userAgent, string? ipAddress)
+    // Mismo patrón que AuthLN.GenerarTokenConSesion: sessionId estable (Session.Id),
+    // jti por-token separado; devuelve (accessToken, refreshToken).
+    private (string token, string refreshToken) GenerarTokenConSesion(StaffMember staff, string? userAgent, string? ipAddress)
     {
+        var sessionId = Guid.NewGuid();
         var jti = Guid.NewGuid();
-        var token = JwtTokenFactory.GenerarToken(_configuration, staff.Id, staff.Email, CredentialsGenerator.DetectRole(staff.Email), jti);
+        var token = JwtTokenFactory.GenerarToken(_configuration, staff.Id, staff.Email, CredentialsGenerator.DetectRole(staff.Email), jti, sessionId);
+
+        var refreshRaw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        var refreshHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(refreshRaw)));
 
         _unitOfWork.Sessions.Insertar(new Session
         {
-            Id = jti,
+            Id = sessionId,
             StaffId = staff.Id,
             DeviceLabel = DeviceParser.AnalizarUserAgent(userAgent),
             IpAddress = ipAddress,
             CreatedAt = DateTime.UtcNow,
             IsActive = true,
+            RefreshTokenHash = refreshHash,
+            RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(30),
         });
         RegistrarEvento(staff.Id, "login");
         _unitOfWork.Completar();
 
-        return token;
+        return (token, refreshRaw);
     }
 
     // No hace su propio Completar(): se inserta junto con el resto de cambios del
