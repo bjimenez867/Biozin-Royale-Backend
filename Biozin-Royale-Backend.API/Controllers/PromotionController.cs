@@ -21,7 +21,6 @@ public class PromotionController : ControllerBase
     
     // ──────────── Jugador ────────────
     [HttpGet]
-    [Authorize(Roles = "admin")]
     public async Task<IActionResult> GetActivas()
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -30,7 +29,6 @@ public class PromotionController : ControllerBase
     }
 
     [HttpPost("{id:guid}/claim")]
-    [Authorize(Roles = "admin")]
     public async Task<IActionResult> Claim(Guid id)
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -39,7 +37,6 @@ public class PromotionController : ControllerBase
     }
 
     [HttpGet("my")]
-    [Authorize(Roles = "admin")]
     public async Task<IActionResult> GetMyClaims()
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
