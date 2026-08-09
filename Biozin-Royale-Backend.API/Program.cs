@@ -151,7 +151,12 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                   "http://localhost:4200",
                   "http://localhost:8100",
-                  "https://blue-smoke-09bb7ba10.7.azurestaticapps.net")
+                  "https://blue-smoke-09bb7ba10.7.azurestaticapps.net",
+                  // Orígenes que usa Capacitor para servir la app nativa (no hay
+                  // puerto ni dominio real al que apuntar como en la web).
+                  "capacitor://localhost", // iOS
+                  "https://localhost",     // Android (androidScheme por defecto)
+                  "http://localhost")      // Android con androidScheme: 'http'
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
