@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Biozin_Royale_Backend.Dominio.TypedEntities;
 
 public class TMetodoPagoResultado
@@ -21,6 +23,7 @@ public class TMetodoPagoResultado
 
 public class TAgregarPayPalRequest
 {
+    [EmailAddress(ErrorMessage = "El correo de PayPal no tiene un formato válido.")]
     public string  Email     { get; set; } = string.Empty;
     public string? Alias     { get; set; }
     public bool    IsDefault { get; set; }
