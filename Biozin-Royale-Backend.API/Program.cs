@@ -38,6 +38,7 @@ builder.Services.AddScoped<IDepositosLN, DepositosLN>();
 builder.Services.AddScoped<IMetodosPagoLN, MetodosPagoLN>();
 builder.Services.AddScoped<IRetirosLN, RetirosLN>();
 builder.Services.AddScoped<ITicketsLN, TicketsLN>();
+builder.Services.AddScoped<IInternalRequestsLN, InternalRequestsLN>();
 
 builder.Services.AddRateLimiter(options =>
 {

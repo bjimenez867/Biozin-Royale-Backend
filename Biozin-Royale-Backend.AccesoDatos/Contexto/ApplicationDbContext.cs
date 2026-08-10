@@ -22,6 +22,8 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
         public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
         public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
+        public DbSet<InternalRequest> InternalRequests => Set<InternalRequest>();
+        public DbSet<InternalRequestMessage> InternalRequestMessages => Set<InternalRequestMessage>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -246,6 +248,35 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(m => m.FileName).HasColumnName("file_name");
                 entity.Property(m => m.CreatedAt).HasColumnName("created_at");
                 entity.HasIndex(m => new { m.TicketId, m.CreatedAt });
+            });
+
+            modelBuilder.Entity<InternalRequest>(entity =>
+            {
+                entity.ToTable("internal_requests");
+                entity.HasKey(r => r.Id);
+                entity.Property(r => r.Id).HasColumnName("id");
+                entity.Property(r => r.RequestNumber).HasColumnName("request_number").ValueGeneratedOnAdd();
+                entity.Property(r => r.RequestedBy).HasColumnName("requested_by");
+                entity.Property(r => r.TargetAdminId).HasColumnName("target_admin_id");
+                entity.Property(r => r.Subject).HasColumnName("subject");
+                entity.Property(r => r.Description).HasColumnName("description");
+                entity.Property(r => r.Status).HasColumnName("status");
+                entity.Property(r => r.CreatedAt).HasColumnName("created_at");
+                entity.Property(r => r.UpdatedAt).HasColumnName("updated_at");
+            });
+
+            modelBuilder.Entity<InternalRequestMessage>(entity =>
+            {
+                entity.ToTable("internal_request_messages");
+                entity.HasKey(m => m.Id);
+                entity.Property(m => m.Id).HasColumnName("id");
+                entity.Property(m => m.InternalRequestId).HasColumnName("internal_request_id");
+                entity.Property(m => m.SenderId).HasColumnName("sender_id");
+                entity.Property(m => m.SenderRole).HasColumnName("sender_role");
+                entity.Property(m => m.SenderName).HasColumnName("sender_name");
+                entity.Property(m => m.Body).HasColumnName("body");
+                entity.Property(m => m.CreatedAt).HasColumnName("created_at");
+                entity.HasIndex(m => new { m.InternalRequestId, m.CreatedAt });
             });
 
             modelBuilder.Entity<PaymentMethod>(entity =>
