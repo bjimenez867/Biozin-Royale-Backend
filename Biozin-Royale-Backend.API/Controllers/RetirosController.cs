@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
 using Biozin_Royale_Backend.Dominio.TypedEntities;
 
@@ -19,6 +20,7 @@ public class RetirosController : ControllerBase
 
     private Guid UserId => Guid.Parse(User.FindFirst("sub")!.Value);
 
+    [EnableRateLimiting("payments")]
     [HttpPost]
     public async Task<IActionResult> Retirar([FromBody] TIniciarRetiroRequest request) =>
         Ok(await _retirosLN.ProcesarRetiroAsync(UserId, request));

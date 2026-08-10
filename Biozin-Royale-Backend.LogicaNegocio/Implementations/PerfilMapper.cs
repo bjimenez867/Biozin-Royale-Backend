@@ -34,6 +34,7 @@ internal static class PerfilMapper
             RefreshToken = refreshToken,
             CamposPendientes = camposPendientes,
             MustVerifyEmail = !perfil.IsGuest && !perfil.EmailVerified,
+            PlayerId = perfil.PlayerId,
         };
     }
 }

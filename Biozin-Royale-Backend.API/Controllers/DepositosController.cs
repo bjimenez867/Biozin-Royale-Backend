@@ -2,6 +2,7 @@ using Biozin_Royale_Backend.Dominio.InterfacesLN;
 using Biozin_Royale_Backend.Dominio.TypedEntities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Biozin_Royale_Backend.API.Controllers;
 
@@ -17,6 +18,7 @@ public class DepositosController : ControllerBase
         _depositosLN = depositosLN;
     }
 
+    [EnableRateLimiting("payments")]
     [HttpPost("stripe/iniciar")]
     public async Task<IActionResult> IniciarStripe([FromBody] TDepositoRequest request)
     {
@@ -25,6 +27,7 @@ public class DepositosController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("payments")]
     [HttpPost("paypal/iniciar")]
     public async Task<IActionResult> IniciarPayPal([FromBody] TDepositoRequest request)
     {

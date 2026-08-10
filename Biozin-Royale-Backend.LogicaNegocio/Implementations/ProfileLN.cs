@@ -585,6 +585,29 @@ public class ProfileLN : IProfileLN
         return staffEmail is not null && CredentialsGenerator.DetectRole(staffEmail) == "admin";
     }
 
+    public Task<Response<bool>> CheckUsernameAsync(string username, Guid userId)
+    {
+        var resultado = new Response<bool>();
+
+        if (string.IsNullOrWhiteSpace(username) || username.Length < 3 || username.Length > 20)
+        {
+            resultado.ReturnValue = false;
+            return Task.FromResult(resultado);
+        }
+
+        // El propio username actual del usuario siempre se considera disponible
+        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        if (perfil?.Username == username)
+        {
+            resultado.ReturnValue = true;
+            return Task.FromResult(resultado);
+        }
+
+        var enUso = _unitOfWork.Profiles.ObtenerEntidad(p => p.Username == username).ReturnValue;
+        resultado.ReturnValue = enUso is null;
+        return Task.FromResult(resultado);
+    }
+
     public Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId)
     {
         var resultado = new Response<TEstadisticas>();

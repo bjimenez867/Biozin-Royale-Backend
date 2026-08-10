@@ -178,6 +178,7 @@ public class AuthLN : IAuthLN
             Country = PhoneCountryLookup.GetCountry(datos.Phone),
             Password = BCrypt.Net.BCrypt.HashPassword(datos.Password),
             EmailVerified = false,
+            PlayerId = GenerarPlayerIdUnico(),
         };
 
         var wallet = new Wallet
@@ -397,6 +398,7 @@ public class AuthLN : IAuthLN
                 Password = null,
                 // OAuth verifica la identidad del usuario vía proveedor; los invitados no tienen correo real
                 EmailVerified = !esAnonimo,
+                PlayerId = GenerarPlayerIdUnico(),
             };
 
             var wallet = new Wallet
@@ -704,6 +706,17 @@ public class AuthLN : IAuthLN
             if (enUso is null)
                 return candidato;
             sufijo++;
+        }
+    }
+
+    private long GenerarPlayerIdUnico()
+    {
+        while (true)
+        {
+            var candidato = RandomNumberGenerator.GetInt32(10_000_000, 100_000_000);
+            var enUso = _unitOfWork.Profiles.ObtenerEntidad(p => p.PlayerId == candidato).ReturnValue;
+            if (enUso is null)
+                return candidato;
         }
     }
 

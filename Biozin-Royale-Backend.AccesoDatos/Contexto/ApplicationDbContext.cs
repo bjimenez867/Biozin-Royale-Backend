@@ -55,8 +55,12 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(p => p.TwoFactorCodeExpiresAt).HasColumnName("two_factor_code_expires_at");
                 entity.Property(p => p.FailedLoginAttempts).HasColumnName("failed_login_attempts");
                 entity.Property(p => p.LockedUntil).HasColumnName("locked_until");
+                entity.Property(p => p.PlayerId).HasColumnName("player_id");
+                entity.Property(p => p.FailedLoginAttempts).HasColumnName("failed_login_attempts");
+                entity.Property(p => p.LockedUntil).HasColumnName("locked_until");
                 entity.HasIndex(p => p.UserId).IsUnique();
                 entity.HasIndex(p => p.Username).IsUnique();
+                entity.HasIndex(p => p.PlayerId).IsUnique();
             });
 
             modelBuilder.Entity<Wallet>(entity =>

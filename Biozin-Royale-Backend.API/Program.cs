@@ -64,6 +64,33 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit          = 0,
         }));
 
+    // Operaciones sensibles en cuentas autenticadas (PIN, contraseña, 2FA).
+    // Se particiona por userId para no penalizar a usuarios en IPs compartidas (NAT, VPN).
+    options.AddPolicy("sensitive", ctx =>
+    {
+        var key = ctx.User.FindFirst("sub")?.Value ?? GetClientIp(ctx);
+        return RateLimitPartition.GetFixedWindowLimiter("sensitive:" + key, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit          = 5,
+            Window               = TimeSpan.FromMinutes(15),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit           = 0,
+        });
+    });
+
+    // Inicio de operaciones financieras (depósitos y retiros).
+    options.AddPolicy("payments", ctx =>
+    {
+        var key = ctx.User.FindFirst("sub")?.Value ?? GetClientIp(ctx);
+        return RateLimitPartition.GetFixedWindowLimiter("payments:" + key, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit          = 10,
+            Window               = TimeSpan.FromHours(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit           = 0,
+        });
+    });
+
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
