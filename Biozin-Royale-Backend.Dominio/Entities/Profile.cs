@@ -28,4 +28,5 @@ public class Profile
     public DateTime? TwoFactorCodeExpiresAt { get; set; }
     public int FailedLoginAttempts { get; set; } = 0;
     public DateTime? LockedUntil { get; set; }
+    public long? PlayerId { get; set; }
 }

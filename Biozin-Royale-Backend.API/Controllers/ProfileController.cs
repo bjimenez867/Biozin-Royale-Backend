@@ -109,6 +109,14 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? NotFound(resultado) : Ok(resultado);
     }
 
+    [HttpGet("check-username")]
+    public async Task<IActionResult> CheckUsername([FromQuery] string username)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+        var resultado = await _profileLN.CheckUsernameAsync(username, userId);
+        return Ok(resultado);
+    }
+
     [HttpGet("sessions")]
     public async Task<IActionResult> ObtenerSesiones()
     {

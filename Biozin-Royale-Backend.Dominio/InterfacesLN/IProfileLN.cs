@@ -22,4 +22,5 @@ public interface IProfileLN
     Task<Response<TUserBlockInfo>> ObtenerBloqueoActivoAsync(Guid adminId, Guid userId);
     Task<Response<bool>> BloquearUsuarioAsync(Guid adminId, Guid userId, TBlockUserRequest datos);
     Task<Response<bool>> DesbloquearUsuarioAsync(Guid adminId, Guid userId);
+    Task<Response<bool>> CheckUsernameAsync(string username, Guid userId);
 }
