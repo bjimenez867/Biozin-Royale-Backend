@@ -28,4 +28,5 @@ public class TPerfilResultado
     public DateTime? CreatedAt { get; set; }
     public string? CreatedByName { get; set; }
     public long? PlayerId { get; set; }
+    public string? AvatarUrl { get; set; }
 }

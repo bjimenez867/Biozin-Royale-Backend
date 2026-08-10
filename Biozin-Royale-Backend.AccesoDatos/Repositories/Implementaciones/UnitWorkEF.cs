@@ -23,6 +23,7 @@ public class UnitWorkEF : IUnitWork
     public IRepositoryAD<PaymentMethod> PaymentMethods { get; }
     public IRepositoryAD<SupportTicket> SupportTickets { get; }
     public IRepositoryAD<TicketMessage> TicketMessages { get; }
+    public IRepositoryAD<Avatar> Avatars { get; }
 
     public UnitWorkEF(ApplicationDbContext contexto)
     {
@@ -41,6 +42,7 @@ public class UnitWorkEF : IUnitWork
         PaymentMethods = new RepositoryAD<PaymentMethod>(contexto);
         SupportTickets = new RepositoryAD<SupportTicket>(contexto);
         TicketMessages = new RepositoryAD<TicketMessage>(contexto);
+        Avatars = new RepositoryAD<Avatar>(contexto);
     }
 
     public int Completar()

@@ -22,6 +22,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
         public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
         public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
+        public DbSet<Avatar> Avatars => Set<Avatar>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -249,6 +250,21 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(m => m.FileName).HasColumnName("file_name");
                 entity.Property(m => m.CreatedAt).HasColumnName("created_at");
                 entity.HasIndex(m => new { m.TicketId, m.CreatedAt });
+            });
+
+            modelBuilder.Entity<Avatar>(entity =>
+            {
+                entity.ToTable("avatars");
+                entity.HasKey(a => a.Id);
+                entity.Property(a => a.Id).HasColumnName("id").ValueGeneratedOnAdd();
+                entity.Property(a => a.Name).HasColumnName("name");
+                entity.Property(a => a.StoragePath).HasColumnName("storage_path");
+                entity.Property(a => a.Description).HasColumnName("description");
+                entity.Property(a => a.IsActive).HasColumnName("is_active");
+                entity.Property(a => a.SortOrder).HasColumnName("sort_order");
+                entity.Property(a => a.CreatedAt).HasColumnName("created_at");
+                entity.Property(a => a.UpdatedAt).HasColumnName("updated_at");
+                entity.HasIndex(a => a.StoragePath).IsUnique();
             });
 
             modelBuilder.Entity<PaymentMethod>(entity =>

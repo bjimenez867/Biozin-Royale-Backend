@@ -105,13 +105,22 @@ public class AuthLN : IAuthLN
     private readonly IConfiguration _configuration;
     private readonly IStaffLN _staffLN;
     private readonly IEmailService _emailService;
+    private readonly string _avatarsBaseUrl;
 
     public AuthLN(IUnitWork unitOfWork, IConfiguration configuration, IStaffLN staffLN, IEmailService emailService)
     {
-        _unitOfWork = unitOfWork;
+        _unitOfWork    = unitOfWork;
         _configuration = configuration;
-        _staffLN = staffLN;
-        _emailService = emailService;
+        _staffLN       = staffLN;
+        _emailService  = emailService;
+        _avatarsBaseUrl = configuration["Supabase:AvatarsBucketBaseUrl"] ?? "";
+    }
+
+    private string? ResolverAvatarUrl(Profile perfil)
+    {
+        if (perfil.AvatarId is null) return null;
+        var avatar = _unitOfWork.Avatars.ObtenerEntidad(a => a.Id == perfil.AvatarId).ReturnValue;
+        return avatar is null ? null : $"{_avatarsBaseUrl}/{avatar.StoragePath}";
     }
 
     public async Task<Response<TPerfilResultado>> RegistrarManualAsync(TRegistroManual datos)
@@ -198,7 +207,7 @@ public class AuthLN : IAuthLN
         await EnviarVerificacionAsync(email);
 
         // Devuelve perfil sin token: el usuario aún no está autenticado hasta verificar
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: ResolverAvatarUrl(perfil));
         return resultado;
     }
 
@@ -263,7 +272,7 @@ public class AuthLN : IAuthLN
 
         RegistrarEvento(perfil.Id, "login");
         var (loginToken, loginRefresh) = GenerarTokenConSesion(perfil, userAgent, ipAddress);
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, loginToken, loginRefresh);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, loginToken, loginRefresh, avatarUrl: ResolverAvatarUrl(perfil));
         return resultado;
     }
 
@@ -338,7 +347,7 @@ public class AuthLN : IAuthLN
 
         RegistrarEvento(perfil.Id, "login");
         var (twoFaToken, twoFaRefresh) = GenerarTokenConSesion(perfil, userAgent, ipAddress);
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, twoFaToken, twoFaRefresh);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, twoFaToken, twoFaRefresh, avatarUrl: ResolverAvatarUrl(perfil));
         return resultado;
     }
 
@@ -500,7 +509,7 @@ public class AuthLN : IAuthLN
 
         await EnviarVerificacionAsync(email);
 
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: ResolverAvatarUrl(perfil));
         return resultado;
     }
 

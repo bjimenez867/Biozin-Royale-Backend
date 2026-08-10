@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
@@ -12,11 +13,13 @@ public class ProfileLN : IProfileLN
 {
     private readonly IUnitWork _unitOfWork;
     private readonly IMemoryCache _cache;
+    private readonly string _avatarsBaseUrl;
 
-    public ProfileLN(IUnitWork unitOfWork, IMemoryCache cache)
+    public ProfileLN(IUnitWork unitOfWork, IMemoryCache cache, IConfiguration config)
     {
         _unitOfWork = unitOfWork;
         _cache = cache;
+        _avatarsBaseUrl = config["Supabase:AvatarsBucketBaseUrl"] ?? "";
     }
 
     // No hace su propio Completar(): se inserta junto con el resto de cambios del
@@ -43,7 +46,7 @@ public class ProfileLN : IProfileLN
             return Task.FromResult(resultado);
         }
 
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: ResolverAvatarUrl(perfil));
         return Task.FromResult(resultado);
     }
 
@@ -77,7 +80,7 @@ public class ProfileLN : IProfileLN
         _unitOfWork.Profiles.Modificar(perfil);
         _unitOfWork.Completar();
 
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: ResolverAvatarUrl(perfil));
         return Task.FromResult(resultado);
     }
 
@@ -624,5 +627,14 @@ public class ProfileLN : IProfileLN
                 GananciasNetas = stats.GananciasNetas
             };
         return Task.FromResult(resultado);
+    }
+
+    private string? ResolverAvatarUrl(Profile perfil)
+    {
+        if (perfil.AvatarId is null) return null;
+        var avatar = _unitOfWork.Avatars
+            .ObtenerEntidad(a => a.Id == perfil.AvatarId)
+            .ReturnValue;
+        return avatar is null ? null : $"{_avatarsBaseUrl}/{avatar.StoragePath}";
     }
 }
