@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
 using Biozin_Royale_Backend.Dominio.TypedEntities;
 using System.Security.Claims;
@@ -108,6 +109,7 @@ public class StaffController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("sensitive")]
     [HttpPut("me/password")]
     [Authorize(Roles = "admin,soporte")]
     public async Task<IActionResult> CambiarPassword([FromBody] TCambiarPasswordStaff datos)

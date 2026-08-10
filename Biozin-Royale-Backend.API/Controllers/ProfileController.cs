@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
 using Biozin_Royale_Backend.Dominio.TypedEntities;
 
@@ -46,6 +47,7 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("sensitive")]
     [HttpPut("password")]
     public async Task<IActionResult> CambiarPassword([FromBody] TCambiarPassword datos)
     {
@@ -55,6 +57,7 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("sensitive")]
     [HttpPost("pin")]
     public async Task<IActionResult> CrearPin([FromBody] TCrearPin datos)
     {
@@ -64,6 +67,7 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("sensitive")]
     [HttpPut("pin")]
     public async Task<IActionResult> CambiarPin([FromBody] TCambiarPin datos)
     {
@@ -73,6 +77,7 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("sensitive")]
     [HttpPut("pin/estado")]
     public async Task<IActionResult> CambiarEstadoPin([FromBody] TCambiarEstadoPin datos)
     {
@@ -82,6 +87,7 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("sensitive")]
     [HttpPost("pin/verificar")]
     public async Task<IActionResult> VerificarPin([FromBody] TVerificarPin datos)
     {
@@ -91,6 +97,7 @@ public class ProfileController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    [EnableRateLimiting("sensitive")]
     [HttpPut("2fa/estado")]
     public async Task<IActionResult> CambiarEstadoTwoFactor([FromBody] TCambiarEstadoTwoFactor datos)
     {
