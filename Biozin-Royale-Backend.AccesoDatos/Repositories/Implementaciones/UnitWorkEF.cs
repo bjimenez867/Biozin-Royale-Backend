@@ -24,6 +24,8 @@ public class UnitWorkEF : IUnitWork
     public IRepositoryAD<SupportTicket> SupportTickets { get; }
     public IRepositoryAD<TicketMessage> TicketMessages { get; }
     public IRepositoryAD<Avatar> Avatars { get; }
+    public IRepositoryAD<InternalRequest> InternalRequests { get; }
+    public IRepositoryAD<InternalRequestMessage> InternalRequestMessages { get; }
 
     public UnitWorkEF(ApplicationDbContext contexto)
     {
@@ -43,6 +45,8 @@ public class UnitWorkEF : IUnitWork
         SupportTickets = new RepositoryAD<SupportTicket>(contexto);
         TicketMessages = new RepositoryAD<TicketMessage>(contexto);
         Avatars = new RepositoryAD<Avatar>(contexto);
+        InternalRequests = new RepositoryAD<InternalRequest>(contexto);
+        InternalRequestMessages = new RepositoryAD<InternalRequestMessage>(contexto);
     }
 
     public int Completar()
