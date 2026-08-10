@@ -26,13 +26,9 @@ public class PromotionLN : IPromotionLN
             return Task.FromResult(resultado);
         }
 
-        var grantIds = _unitOfWork.PromotionClaims
-            .ObtenerEntidades(c => c.Status == "compensacion")
-            .ReturnValue?.Select(c => c.PromotionId).ToHashSet() ?? [];
-
         var promos = _unitOfWork.Promotions.Listar().ReturnValue ?? [];
         resultado.ReturnValue = promos
-            .Where(p => !grantIds.Contains(p.Id))
+            .Where(p => p.TargetUserId is null)
             .Select(Mapear)
             .ToList();
         return Task.FromResult(resultado);
@@ -93,6 +89,12 @@ public class PromotionLN : IPromotionLN
             return Task.FromResult(resultado);
         }
 
+        if (promo.TargetUserId is not null)
+        {
+            resultado.lpError("No permitido", "No se puede alternar la visibilidad de un bono personal.");
+            return Task.FromResult(resultado);
+        }
+
         promo.IsActive = !promo.IsActive;
         _unitOfWork.Promotions.Modificar(promo);
         _unitOfWork.Completar();
@@ -125,7 +127,8 @@ public class PromotionLN : IPromotionLN
             Description = datos.Description?.Trim(),
             Amount = datos.Amount,
             IsActive = false,
-            CreatedAt = ahora
+            CreatedAt = ahora,
+            TargetUserId = targetUserId
         };
         _unitOfWork.Promotions.Insertar(promo);
         // La promotion debe existir en DB antes de insertar el claim (FK promotion_claims_promotion_id_fkey)
@@ -194,7 +197,7 @@ public class PromotionLN : IPromotionLN
         var resultado = new Response<List<TPromotion>>();
 
         var promos = _unitOfWork.Promotions
-            .ObtenerEntidades(p => p.IsActive && (p.EndsAt == null || p.EndsAt > DateTime.UtcNow))
+            .ObtenerEntidades(p => p.IsActive && p.TargetUserId == null && (p.EndsAt == null || p.EndsAt > DateTime.UtcNow))
             .ReturnValue ?? [];
 
         var reclamadas = _unitOfWork.PromotionClaims
@@ -225,6 +228,12 @@ public class PromotionLN : IPromotionLN
         if (promo is null)
         {
             resultado.lpError("No disponible", "Esta promoción no existe.");
+            return Task.FromResult(resultado);
+        }
+
+        if (promo.TargetUserId is not null && promo.TargetUserId != userId)
+        {
+            resultado.lpError("No disponible", "Esta promoción no está disponible.");
             return Task.FromResult(resultado);
         }
 

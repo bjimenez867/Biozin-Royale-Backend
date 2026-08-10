@@ -9,4 +9,5 @@ public class Promotion
     public decimal Amount { get; set; }
     public DateTime? EndsAt { get; set; }
     public DateTime CreatedAt { get; set; }
+    public Guid? TargetUserId { get; set; }
 }
