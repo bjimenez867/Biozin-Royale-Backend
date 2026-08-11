@@ -325,9 +325,12 @@ public sealed class BlackjackRoomManager
 
                 player.ConnectionId = null;
 
-                // Sin ronda activa (o sin apuesta en la ronda) se puede ir ya;
-                // con apuesta viva se queda hasta liquidar para no perder su pago.
-                if (player.Seat is null)
+                // Sin apuesta ni asiento en la ronda actual se puede ir ya. Con
+                // apuesta viva (aunque el asiento todavía no se haya armado —
+                // pasa si se desconecta durante la propia ventana de apuestas)
+                // se queda hasta liquidar: si se le sacara de room.Players aquí,
+                // su dinero ya debitado nunca se acreditaría de vuelta.
+                if (player.Bet <= 0 && player.Seat is null)
                     room.Players.Remove(player);
                 // Si era su turno, que no bloquee: el timeout del loop lo planta solo.
 
@@ -553,15 +556,20 @@ public sealed class BlackjackRoomManager
                         "Saliste de la mesa por no apostar en varias rondas.");
             }
 
-            if (!room.Players.Any(p => p.ConnectionId != null)) return false;
-
+            var anyoneConnected = room.Players.Any(p => p.ConnectionId != null);
             var bettors = room.Players.Where(p => p.Bet > 0 && p.Chair != null).ToList();
 
-            // Sin apuestas humanas la ronda corre igual con los bots: la mesa se ve
-            // viva y quien no apostó mira. Solo si tampoco hay bots (4 humanos
-            // sentados y nadie apostó) se reabre la ventana de apuestas.
-            if (bettors.Count == 0 && room.Bots.Count == 0)
-                return true;
+            // Sin apuestas: si no queda nadie conectado no hay nada que hacer (se
+            // cierra la sala); si hay bots y algún jugador conectado sin apostar,
+            // la ronda corre igual con ellos para que la mesa se vea viva.
+            if (bettors.Count == 0)
+            {
+                if (!anyoneConnected) return false;
+                if (room.Bots.Count == 0) return true; // reabre la ventana de apuestas
+            }
+            // Si alguien SÍ apostó (aunque fuera el único jugador y ya se haya
+            // desconectado), la ronda se arma y liquida siempre: su dinero ya
+            // salió de la wallet y no puede quedar varado en estado "pending".
 
             var seats = new List<BjSeat>();
             foreach (var p in bettors)
