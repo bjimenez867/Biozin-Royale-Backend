@@ -13,6 +13,7 @@ using Biozin_Royale_Backend.Dominio.InterfacesLN;
 using Biozin_Royale_Backend.LogicaNegocio.Implementations;
 using Biozin_Royale_Backend.API.Auth;
 using Biozin_Royale_Backend.API.BackgroundServices;
+using Biozin_Royale_Backend.API.Hubs;
 
 QuestPDF.Settings.License = LicenseType.Community;
 
@@ -106,6 +107,12 @@ builder.Services.AddSingleton<ISportsLN, SportsLN>();
 builder.Services.AddHostedService<BetSettlementService>();
 builder.Services.AddHostedService<BonusExpirationService>();
 
+// Blackjack multijugador: hub SignalR + salas en memoria (singleton) + reembolso
+// de apuestas huérfanas al arrancar
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<BlackjackRoomManager>();
+builder.Services.AddHostedService<BlackjackRefundService>();
+
 var supabaseUrl = builder.Configuration["Supabase:Url"]!;
 var supabaseIssuer = $"{supabaseUrl}/auth/v1";
 var localIssuer = builder.Configuration["Jwt:LocalIssuer"]!;
@@ -141,6 +148,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         // no pegarle a la base de datos en cada request autenticado de la app.
         options.Events = new JwtBearerEvents
         {
+            // SignalR no puede mandar el header Authorization en websockets: el
+            // cliente JS envía el JWT como query param access_token SOLO hacia
+            // la ruta del hub. Fuera de /hubs/ se ignora por completo.
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken)
+                    && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
+
             OnTokenValidated = async context =>
             {
                 var candidatos = new[] { "jti", "session_id" }
@@ -187,7 +208,9 @@ builder.Services.AddCors(options =>
                   "https://localhost",     // Android (androidScheme por defecto)
                   "http://localhost")      // Android con androidScheme: 'http'
               .AllowAnyHeader()
-              .AllowAnyMethod());
+              .AllowAnyMethod()
+              // SignalR negocia con credenciales; requiere orígenes explícitos (ya los hay)
+              .AllowCredentials());
 });
 
 // Add services to the container.
@@ -214,5 +237,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<BlackjackHub>("/hubs/blackjack");
 
 app.Run();

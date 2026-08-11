@@ -229,7 +229,7 @@ public class PromotionLN : IPromotionLN
         if (promo.TargetUserId is not null && promo.TargetUserId != userId)
         {
             resultado.lpError("No disponible", "Esta promoción no está disponible.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         var existingClaim = await _unitOfWork.PromotionClaims
