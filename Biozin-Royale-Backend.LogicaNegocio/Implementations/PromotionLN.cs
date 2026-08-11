@@ -96,7 +96,7 @@ public class PromotionLN : IPromotionLN
         if (promo.TargetUserId is not null)
         {
             resultado.lpError("No permitido", "No se puede alternar la visibilidad de un bono personal.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         promo.IsActive = !promo.IsActive;
