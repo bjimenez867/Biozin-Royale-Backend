@@ -93,6 +93,12 @@ public class PromotionLN : IPromotionLN
             return resultado;
         }
 
+        if (promo.TargetUserId is not null)
+        {
+            resultado.lpError("No permitido", "No se puede alternar la visibilidad de un bono personal.");
+            return Task.FromResult(resultado);
+        }
+
         promo.IsActive = !promo.IsActive;
         _unitOfWork.Promotions.Modificar(promo);
         await _unitOfWork.CompletarAsync();
@@ -194,7 +200,7 @@ public class PromotionLN : IPromotionLN
         var resultado = new Response<List<TPromotion>>();
 
         var promos = await _unitOfWork.Promotions
-            .ObtenerEntidadesAsync(p => p.IsActive && (p.EndsAt == null || p.EndsAt > DateTime.UtcNow));
+            .ObtenerEntidadesAsync(p => p.IsActive && p.TargetUserId == null && (p.EndsAt == null || p.EndsAt > DateTime.UtcNow));
 
         var reclamadas = (await _unitOfWork.PromotionClaims
             .ObtenerEntidadesAsync(c => c.UserId == userId))
