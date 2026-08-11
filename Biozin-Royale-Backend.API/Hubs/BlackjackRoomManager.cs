@@ -101,7 +101,7 @@ public sealed class BlackjackRoomManager
         _scopeFactory = scopeFactory;
         _logger = logger;
 
-        // Mismas 6 mesas que muestra el lobby del frontend (tables.data.ts)
+        // Mismas 5 mesas que muestra el lobby del frontend (tables.data.ts)
         _rooms =
         [
             new BjRoom { Id = 1, Min = 10,  Max = 1000  },
@@ -109,7 +109,6 @@ public sealed class BlackjackRoomManager
             new BjRoom { Id = 3, Min = 50,  Max = 5000  },
             new BjRoom { Id = 4, Min = 100, Max = 10000 },
             new BjRoom { Id = 5, Min = 250, Max = 25000 },
-            new BjRoom { Id = 6, Min = 10,  Max = 1000  },
         ];
     }
 
