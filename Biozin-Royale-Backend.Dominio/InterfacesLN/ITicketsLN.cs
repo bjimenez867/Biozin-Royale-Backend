@@ -19,4 +19,5 @@ public interface ITicketsLN
     Task<Response<TTicketResultado>> RateAsync(Guid ticketId, Guid userId, short rating);
     Task<Response<TTicketResultado>> CerrarAsync(Guid ticketId, Guid userId);
     Task<Response<TTicketResultado>> CrearDesdeEmailAsync(string fromEmail, string fromName, string category, string body);
+    Task<Response<TTicketNotificaciones>> ObtenerNotificacionesAsync(DateTime since);
 }

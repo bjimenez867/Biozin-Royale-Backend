@@ -523,6 +523,68 @@ public class TicketsLN : ITicketsLN
         return Task.FromResult(resultado);
     }
 
+    // ── Notificaciones (admin/soporte) ────────────────────────────────────
+
+    public Task<Response<TTicketNotificaciones>> ObtenerNotificacionesAsync(DateTime since)
+    {
+        var resultado = new Response<TTicketNotificaciones>();
+        var ahora = DateTime.UtcNow;
+
+        var ticketsNuevos = _unitOfWork.SupportTickets
+            .ObtenerEntidades(t => t.CreatedAt > since)
+            .ReturnValue?
+            .OrderBy(t => t.CreatedAt)
+            .ToList() ?? new List<SupportTicket>();
+
+        var mensajesNuevos = _unitOfWork.TicketMessages
+            .ObtenerEntidades(m => m.CreatedAt > since && (m.SenderRole == "user" || m.SenderRole == "authenticated"))
+            .ReturnValue?
+            .OrderBy(m => m.CreatedAt)
+            .ToList() ?? new List<TicketMessage>();
+
+        var userIds = ticketsNuevos.Select(t => t.UserId).Distinct().ToList();
+        var perfiles = userIds.Count > 0
+            ? _unitOfWork.Profiles.ObtenerEntidades(p => userIds.Contains(p.UserId)).ReturnValue?
+                .ToDictionary(p => p.UserId, p => p.DisplayName) ?? new Dictionary<Guid, string>()
+            : new Dictionary<Guid, string>();
+
+        var ticketIdsDeMensajes = mensajesNuevos.Select(m => m.TicketId).Distinct().ToList();
+        var ticketsPorId = ticketIdsDeMensajes.Count > 0
+            ? _unitOfWork.SupportTickets.ObtenerEntidades(t => ticketIdsDeMensajes.Contains(t.Id)).ReturnValue?
+                .ToDictionary(t => t.Id) ?? new Dictionary<Guid, SupportTicket>()
+            : new Dictionary<Guid, SupportTicket>();
+
+        resultado.ReturnValue = new TTicketNotificaciones
+        {
+            NuevosTickets = ticketsNuevos.Select(t => new TNuevoTicketNotif
+            {
+                Id = t.Id,
+                TicketNumber = t.TicketNumber,
+                Subject = t.Subject,
+                UserDisplayName = perfiles.TryGetValue(t.UserId, out var nombre) ? nombre : null,
+                CreatedAt = t.CreatedAt,
+            }).ToList(),
+            NuevosMensajes = mensajesNuevos
+                .Where(m => ticketsPorId.ContainsKey(m.TicketId))
+                .Select(m =>
+                {
+                    var t = ticketsPorId[m.TicketId];
+                    return new TNuevoMensajeNotif
+                    {
+                        TicketId = t.Id,
+                        TicketNumber = t.TicketNumber,
+                        Subject = t.Subject,
+                        SenderName = m.SenderName,
+                        Body = m.Body,
+                        CreatedAt = m.CreatedAt,
+                    };
+                }).ToList(),
+            ServerTime = ahora,
+        };
+
+        return Task.FromResult(resultado);
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private static TTicketResultado MapTicket(

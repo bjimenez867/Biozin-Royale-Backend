@@ -146,6 +146,30 @@ public class TicketsController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
+    // ── Notificaciones (solo staff) ─────────────────────────────────────────
+
+    [HttpGet("notifications")]
+    public async Task<IActionResult> ObtenerNotificaciones([FromQuery] DateTime? since)
+    {
+        if (!TryGetUserId(out _)) return Unauthorized();
+        if (!IsStaff()) return Forbid();
+
+        // El binder de query string puede parsear el sufijo "Z" del ISO string del cliente
+        // convirtiéndolo a hora local del servidor (Kind=Local); si solo re-etiquetáramos
+        // el Kind sin convertir, la ventana de "nuevo" quedaría corrida por el offset de
+        // zona horaria del servidor. Se normaliza explícito a UTC en cada caso.
+        var sinceUtc = since switch
+        {
+            null => DateTime.UtcNow,
+            { Kind: DateTimeKind.Utc } dt => dt,
+            { Kind: DateTimeKind.Local } dt => dt.ToUniversalTime(),
+            { } dt => DateTime.SpecifyKind(dt, DateTimeKind.Utc),
+        };
+
+        var resultado = await _ticketsLN.ObtenerNotificacionesAsync(sinceUtc);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private bool TryGetUserId(out Guid userId)
