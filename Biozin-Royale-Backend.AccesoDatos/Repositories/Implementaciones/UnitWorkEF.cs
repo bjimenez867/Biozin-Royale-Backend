@@ -50,6 +50,9 @@ public class UnitWorkEF : IUnitWork
         return _contexto.SaveChanges();
     }
 
+    public async Task<int> CompletarAsync()
+        => await _contexto.SaveChangesAsync();
+
     /// auth.users es la tabla interna de Supabase Auth; no se mapea como entidad EF
     /// porque el esquema lo administra Supabase, no este proyecto. Solo se inserta
     /// la fila mínima necesaria para satisfacer la FK de profiles.user_id en el

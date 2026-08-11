@@ -34,18 +34,16 @@ public class BonusExpirationService : BackgroundService
         } while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
-    private Task ExpireAsync(CancellationToken ct)
+    private async Task ExpireAsync(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitWork>();
 
         var now = DateTime.UtcNow;
-        var expired = unitOfWork.Promotions
-            .ObtenerEntidades(p => p.IsActive && p.EndsAt != null && p.EndsAt <= now)
-            .ReturnValue!
-            .ToList();
+        var expired = await unitOfWork.Promotions
+            .ObtenerEntidadesAsync(p => p.IsActive && p.EndsAt != null && p.EndsAt <= now);
 
-        if (expired.Count == 0) return Task.CompletedTask;
+        if (expired.Count == 0) return;
 
         foreach (var promo in expired)
         {
@@ -53,7 +51,6 @@ public class BonusExpirationService : BackgroundService
             unitOfWork.Promotions.Modificar(promo);
         }
 
-        unitOfWork.Completar();
-        return Task.CompletedTask;
+        await unitOfWork.CompletarAsync();
     }
 }

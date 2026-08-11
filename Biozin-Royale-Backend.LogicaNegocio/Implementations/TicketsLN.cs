@@ -17,20 +17,17 @@ public class TicketsLN : ITicketsLN
 
     // ── Tickets ────────────────────────────────────────────────────────────
 
-    public Task<Response<TTicketResultado>> CrearTicketAsync(TCrearTicket datos, Guid userId)
+    public async Task<Response<TTicketResultado>> CrearTicketAsync(TCrearTicket datos, Guid userId)
     {
         var resultado = new Response<TTicketResultado>();
 
         if (string.IsNullOrWhiteSpace(datos.Subject) || string.IsNullOrWhiteSpace(datos.Description))
         {
             resultado.lpError("Datos inválidos", "El asunto y la descripción son obligatorios.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var agentes = _unitOfWork.StaffMembers
-            .ObtenerEntidades(s => s.Status == "active")
-            .ReturnValue?
-            .ToList() ?? new List<StaffMember>();
+        var agentes = await _unitOfWork.StaffMembers.ObtenerEntidadesAsync(s => s.Status == "active");
 
         Guid? asignadoA = null;
         string? asignadoNombre = null;
@@ -57,26 +54,25 @@ public class TicketsLN : ITicketsLN
         };
 
         _unitOfWork.SupportTickets.Insertar(ticket);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = MapTicket(ticket, asignadoNombre, null, null, null);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<IEnumerable<TTicketResultado>>> ListarTicketsUsuarioAsync(Guid userId)
+    public async Task<Response<IEnumerable<TTicketResultado>>> ListarTicketsUsuarioAsync(Guid userId)
     {
         var resultado = new Response<IEnumerable<TTicketResultado>>();
 
-        var tickets = _unitOfWork.SupportTickets
-            .ObtenerEntidades(t => t.UserId == userId)
-            .ReturnValue?
+        var tickets = (await _unitOfWork.SupportTickets
+            .ObtenerEntidadesAsync(t => t.UserId == userId))
             .OrderByDescending(t => t.CreatedAt)
-            .ToList() ?? new List<SupportTicket>();
+            .ToList();
 
         var staffIds = tickets.Where(t => t.AssignedTo.HasValue).Select(t => t.AssignedTo!.Value).Distinct().ToList();
         var staffDict = staffIds.Count > 0
-            ? _unitOfWork.StaffMembers.ObtenerEntidades(s => staffIds.Contains(s.Id)).ReturnValue?
-                .ToDictionary(s => s.Id, s => s.DisplayName) ?? new Dictionary<Guid, string>()
+            ? (await _unitOfWork.StaffMembers.ObtenerEntidadesAsync(s => staffIds.Contains(s.Id)))
+                .ToDictionary(s => s.Id, s => s.DisplayName)
             : new Dictionary<Guid, string>();
 
         resultado.ReturnValue = tickets.Select(t => MapTicket(
@@ -85,27 +81,27 @@ public class TicketsLN : ITicketsLN
             null, null, null
         ));
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<IEnumerable<TTicketResultado>>> ListarTodosAsync()
+    public async Task<Response<IEnumerable<TTicketResultado>>> ListarTodosAsync()
     {
         var resultado = new Response<IEnumerable<TTicketResultado>>();
 
-        var tickets = _unitOfWork.SupportTickets.Listar().ReturnValue?
+        var tickets = (await _unitOfWork.SupportTickets.ListarAsync())
             .OrderByDescending(t => t.CreatedAt)
-            .ToList() ?? new List<SupportTicket>();
+            .ToList();
 
         var staffIds = tickets.Where(t => t.AssignedTo.HasValue).Select(t => t.AssignedTo!.Value).Distinct().ToList();
         var staffDict = staffIds.Count > 0
-            ? _unitOfWork.StaffMembers.ObtenerEntidades(s => staffIds.Contains(s.Id)).ReturnValue?
-                .ToDictionary(s => s.Id, s => s.DisplayName) ?? new Dictionary<Guid, string>()
+            ? (await _unitOfWork.StaffMembers.ObtenerEntidadesAsync(s => staffIds.Contains(s.Id)))
+                .ToDictionary(s => s.Id, s => s.DisplayName)
             : new Dictionary<Guid, string>();
 
         var userIds = tickets.Select(t => t.UserId).Distinct().ToList();
         var perfiles = userIds.Count > 0
-            ? _unitOfWork.Profiles.ObtenerEntidades(p => userIds.Contains(p.UserId)).ReturnValue?
-                .ToDictionary(p => p.UserId) ?? new Dictionary<Guid, Profile>()
+            ? (await _unitOfWork.Profiles.ObtenerEntidadesAsync(p => userIds.Contains(p.UserId)))
+                .ToDictionary(p => p.UserId)
             : new Dictionary<Guid, Profile>();
 
         resultado.ReturnValue = tickets.Select(t =>
@@ -115,18 +111,18 @@ public class TicketsLN : ITicketsLN
             return MapTicket(t, staffNombre, perfil?.DisplayName, perfil?.Email, perfil?.Username);
         });
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TTicketResultado>> ObtenerTicketAsync(Guid ticketId, Guid callerId, string callerRole)
+    public async Task<Response<TTicketResultado>> ObtenerTicketAsync(Guid ticketId, Guid callerId, string callerRole)
     {
         var resultado = new Response<TTicketResultado>();
 
-        var ticket = _unitOfWork.SupportTickets.ObtenerEntidad(t => t.Id == ticketId).ReturnValue;
+        var ticket = await _unitOfWork.SupportTickets.ObtenerEntidadAsync(t => t.Id == ticketId);
         if (ticket == null)
         {
             resultado.lpError("No encontrado", "El ticket no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (callerRole == "user" || callerRole == "authenticated")
@@ -134,38 +130,38 @@ public class TicketsLN : ITicketsLN
             if (ticket.UserId != callerId)
             {
                 resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
-                return Task.FromResult(resultado);
+                return resultado;
             }
         }
 
         string? staffNombre = null;
         if (ticket.AssignedTo.HasValue)
         {
-            staffNombre = _unitOfWork.StaffMembers
-                .ObtenerEntidad(s => s.Id == ticket.AssignedTo.Value).ReturnValue?.DisplayName;
+            staffNombre = (await _unitOfWork.StaffMembers
+                .ObtenerEntidadAsync(s => s.Id == ticket.AssignedTo.Value))?.DisplayName;
         }
 
         Profile? perfil = null;
         if (callerRole != "user" && callerRole != "authenticated")
         {
-            perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == ticket.UserId).ReturnValue;
+            perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == ticket.UserId);
         }
 
         resultado.ReturnValue = MapTicket(ticket, staffNombre, perfil?.DisplayName, perfil?.Email, perfil?.Username);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     // ── Mensajes ───────────────────────────────────────────────────────────
 
-    public Task<Response<IEnumerable<TMessage>>> ListarMensajesAsync(Guid ticketId, Guid callerId, string callerRole)
+    public async Task<Response<IEnumerable<TMessage>>> ListarMensajesAsync(Guid ticketId, Guid callerId, string callerRole)
     {
         var resultado = new Response<IEnumerable<TMessage>>();
 
-        var ticket = _unitOfWork.SupportTickets.ObtenerEntidad(t => t.Id == ticketId).ReturnValue;
+        var ticket = await _unitOfWork.SupportTickets.ObtenerEntidadAsync(t => t.Id == ticketId);
         if (ticket == null)
         {
             resultado.lpError("No encontrado", "El ticket no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (callerRole == "user" || callerRole == "authenticated")
@@ -173,13 +169,13 @@ public class TicketsLN : ITicketsLN
             if (ticket.UserId != callerId)
             {
                 resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
-                return Task.FromResult(resultado);
+                return resultado;
             }
         }
 
-        var mensajes = _unitOfWork.TicketMessages
-            .ObtenerEntidades(m => m.TicketId == ticketId)
-            .ReturnValue?
+        var mensajes = await _unitOfWork.TicketMessages.ObtenerEntidadesAsync(m => m.TicketId == ticketId);
+
+        resultado.ReturnValue = mensajes
             .OrderBy(m => m.CreatedAt)
             .Select(m => new TMessage
             {
@@ -190,27 +186,26 @@ public class TicketsLN : ITicketsLN
                 FileUrl    = m.FileUrl,
                 FileName   = m.FileName,
                 CreatedAt  = m.CreatedAt,
-            }) ?? Enumerable.Empty<TMessage>();
+            });
 
-        resultado.ReturnValue = mensajes;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TMessage>> EnviarMensajeAsync(Guid ticketId, Guid senderId, string senderRole, TEnviarMensaje datos)
+    public async Task<Response<TMessage>> EnviarMensajeAsync(Guid ticketId, Guid senderId, string senderRole, TEnviarMensaje datos)
     {
         var resultado = new Response<TMessage>();
 
         if (string.IsNullOrWhiteSpace(datos.Body))
         {
             resultado.lpError("Vacío", "El mensaje no puede estar vacío.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var ticket = _unitOfWork.SupportTickets.ObtenerEntidad(t => t.Id == ticketId).ReturnValue;
+        var ticket = await _unitOfWork.SupportTickets.ObtenerEntidadAsync(t => t.Id == ticketId);
         if (ticket == null)
         {
             resultado.lpError("No encontrado", "El ticket no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (senderRole == "user" || senderRole == "authenticated")
@@ -218,24 +213,24 @@ public class TicketsLN : ITicketsLN
             if (ticket.UserId != senderId)
             {
                 resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
-                return Task.FromResult(resultado);
+                return resultado;
             }
             if (ticket.Status == "resuelto" || ticket.Status == "cerrado")
             {
                 resultado.lpError("Ticket cerrado", "El ticket está cerrado. Reabre el ticket para continuar la conversación.");
-                return Task.FromResult(resultado);
+                return resultado;
             }
         }
 
         string senderName;
         if (senderRole == "user" || senderRole == "authenticated")
         {
-            var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == senderId).ReturnValue;
+            var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == senderId);
             senderName = perfil?.DisplayName ?? perfil?.Username ?? "Usuario";
         }
         else
         {
-            var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == senderId).ReturnValue;
+            var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == senderId);
             senderName = staff?.DisplayName ?? "Soporte";
         }
 
@@ -260,7 +255,7 @@ public class TicketsLN : ITicketsLN
 
         ticket.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.SupportTickets.Modificar(ticket);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = new TMessage
         {
@@ -273,39 +268,39 @@ public class TicketsLN : ITicketsLN
             CreatedAt  = mensaje.CreatedAt,
         };
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     // ── Gestión ────────────────────────────────────────────────────────────
 
-    public Task<Response<TTicketResultado>> AsignarTicketAsync(Guid ticketId, Guid staffMemberId)
+    public async Task<Response<TTicketResultado>> AsignarTicketAsync(Guid ticketId, Guid staffMemberId)
     {
         var resultado = new Response<TTicketResultado>();
 
-        var ticket = _unitOfWork.SupportTickets.ObtenerEntidad(t => t.Id == ticketId).ReturnValue;
+        var ticket = await _unitOfWork.SupportTickets.ObtenerEntidadAsync(t => t.Id == ticketId);
         if (ticket == null)
         {
             resultado.lpError("No encontrado", "El ticket no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == staffMemberId).ReturnValue;
+        var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == staffMemberId);
         if (staff == null)
         {
             resultado.lpError("No encontrado", "El agente no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         ticket.AssignedTo = staffMemberId;
         ticket.UpdatedAt  = DateTime.UtcNow;
         _unitOfWork.SupportTickets.Modificar(ticket);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = MapTicket(ticket, staff.DisplayName, null, null, null);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TTicketResultado>> CambiarEstadoAsync(Guid ticketId, string status)
+    public async Task<Response<TTicketResultado>> CambiarEstadoAsync(Guid ticketId, string status)
     {
         var resultado = new Response<TTicketResultado>();
 
@@ -313,66 +308,66 @@ public class TicketsLN : ITicketsLN
         if (!allowed.Contains(status))
         {
             resultado.lpError("Estado inválido", $"El estado debe ser: {string.Join(", ", allowed)}.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var ticket = _unitOfWork.SupportTickets.ObtenerEntidad(t => t.Id == ticketId).ReturnValue;
+        var ticket = await _unitOfWork.SupportTickets.ObtenerEntidadAsync(t => t.Id == ticketId);
         if (ticket == null)
         {
             resultado.lpError("No encontrado", "El ticket no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         ticket.Status    = status;
         ticket.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.SupportTickets.Modificar(ticket);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         string? staffNombre = null;
         if (ticket.AssignedTo.HasValue)
-            staffNombre = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == ticket.AssignedTo.Value).ReturnValue?.DisplayName;
+            staffNombre = (await _unitOfWork.StaffMembers
+                .ObtenerEntidadAsync(s => s.Id == ticket.AssignedTo.Value))?.DisplayName;
 
         resultado.ReturnValue = MapTicket(ticket, staffNombre, null, null, null);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<IEnumerable<TStaffSimple>>> ListarAgentesAsync()
+    public async Task<Response<IEnumerable<TStaffSimple>>> ListarAgentesAsync()
     {
         var resultado = new Response<IEnumerable<TStaffSimple>>();
 
-        var staff = _unitOfWork.StaffMembers
-            .ObtenerEntidades(s => s.Status == "active" && s.Role == "soporte")
-            .ReturnValue?
-            .Select(s => new TStaffSimple { Id = s.Id, DisplayName = s.DisplayName, Role = s.Role })
-            ?? Enumerable.Empty<TStaffSimple>();
+        var staff = await _unitOfWork.StaffMembers
+            .ObtenerEntidadesAsync(s => s.Status == "active" && s.Role == "soporte");
 
-        resultado.ReturnValue = staff;
-        return Task.FromResult(resultado);
+        resultado.ReturnValue = staff
+            .Select(s => new TStaffSimple { Id = s.Id, DisplayName = s.DisplayName, Role = s.Role });
+
+        return resultado;
     }
 
     // ── Reabrir / Valorar ──────────────────────────────────────────────────
 
-    public Task<Response<TTicketResultado>> ReopenAsync(Guid ticketId, Guid userId)
+    public async Task<Response<TTicketResultado>> ReopenAsync(Guid ticketId, Guid userId)
     {
         var resultado = new Response<TTicketResultado>();
 
-        var ticket = _unitOfWork.SupportTickets.ObtenerEntidad(t => t.Id == ticketId).ReturnValue;
+        var ticket = await _unitOfWork.SupportTickets.ObtenerEntidadAsync(t => t.Id == ticketId);
         if (ticket == null)
         {
             resultado.lpError("No encontrado", "El ticket no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (ticket.UserId != userId)
         {
             resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (ticket.Status != "resuelto")
         {
             resultado.lpError("No aplica", "Solo se pueden reabrir tickets resueltos.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         ticket.Status    = "en_proceso";
@@ -392,39 +387,39 @@ public class TicketsLN : ITicketsLN
             CreatedAt  = DateTime.UtcNow,
         });
 
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = MapTicket(ticket, null, null, null, null);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TTicketResultado>> RateAsync(Guid ticketId, Guid userId, short rating)
+    public async Task<Response<TTicketResultado>> RateAsync(Guid ticketId, Guid userId, short rating)
     {
         var resultado = new Response<TTicketResultado>();
 
         if (rating < 1 || rating > 5)
         {
             resultado.lpError("Valoración inválida", "La valoración debe estar entre 1 y 5.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var ticket = _unitOfWork.SupportTickets.ObtenerEntidad(t => t.Id == ticketId).ReturnValue;
+        var ticket = await _unitOfWork.SupportTickets.ObtenerEntidadAsync(t => t.Id == ticketId);
         if (ticket == null)
         {
             resultado.lpError("No encontrado", "El ticket no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (ticket.UserId != userId)
         {
             resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (ticket.Status != "resuelto")
         {
             resultado.lpError("No aplica", "Solo se pueden valorar tickets resueltos.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         ticket.UpdatedAt = DateTime.UtcNow;
@@ -473,33 +468,33 @@ public class TicketsLN : ITicketsLN
             _unitOfWork.SupportTickets.Modificar(ticket);
         }
 
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = MapTicket(ticket, null, null, null, null);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TTicketResultado>> CerrarAsync(Guid ticketId, Guid userId)
+    public async Task<Response<TTicketResultado>> CerrarAsync(Guid ticketId, Guid userId)
     {
         var resultado = new Response<TTicketResultado>();
 
-        var ticket = _unitOfWork.SupportTickets.ObtenerEntidad(t => t.Id == ticketId).ReturnValue;
+        var ticket = await _unitOfWork.SupportTickets.ObtenerEntidadAsync(t => t.Id == ticketId);
         if (ticket == null)
         {
             resultado.lpError("No encontrado", "El ticket no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (ticket.UserId != userId)
         {
             resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (ticket.Status != "resuelto")
         {
             resultado.lpError("No aplica", "Solo se pueden cerrar definitivamente tickets resueltos.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         ticket.Status    = "cerrado";
@@ -517,10 +512,10 @@ public class TicketsLN : ITicketsLN
             CreatedAt  = DateTime.UtcNow,
         });
 
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = MapTicket(ticket, null, null, null, null);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
@@ -558,9 +553,7 @@ public class TicketsLN : ITicketsLN
         var respuesta = new Response<TTicketResultado>();
 
         // Buscar usuario registrado por correo
-        var profile = _unitOfWork.Profiles
-            .ObtenerEntidades(p => p.Email == fromEmail)
-            .ReturnValue?.FirstOrDefault();
+        var profile = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Email == fromEmail);
 
         if (profile is null)
         {
@@ -583,7 +576,7 @@ public class TicketsLN : ITicketsLN
         };
 
         _unitOfWork.SupportTickets.Insertar(ticket);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         respuesta.ReturnValue = MapTicket(ticket, null, profile.DisplayName, profile.Email, profile.Username);
         return respuesta;

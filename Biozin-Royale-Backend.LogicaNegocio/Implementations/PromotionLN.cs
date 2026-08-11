@@ -17,46 +17,46 @@ public class PromotionLN : IPromotionLN
 
     // ──────────────────────────── Admin ────────────────────────────
 
-    public Task<Response<List<TPromotion>>> ObtenerTodasAsync(Guid adminId)
+    public async Task<Response<List<TPromotion>>> ObtenerTodasAsync(Guid adminId)
     {
         var resultado = new Response<List<TPromotion>>();
-        if (!EsAdmin(adminId))
+        if (!await EsAdminAsync(adminId))
         {
             resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var grantIds = _unitOfWork.PromotionClaims
-            .ObtenerEntidades(c => c.Status == "compensacion")
-            .ReturnValue?.Select(c => c.PromotionId).ToHashSet() ?? [];
+        var grantIds = (await _unitOfWork.PromotionClaims
+            .ObtenerEntidadesAsync(c => c.Status == "compensacion"))
+            .Select(c => c.PromotionId).ToHashSet();
 
-        var promos = _unitOfWork.Promotions.Listar().ReturnValue ?? [];
+        var promos = await _unitOfWork.Promotions.ListarAsync();
         resultado.ReturnValue = promos
             .Where(p => !grantIds.Contains(p.Id))
             .Select(Mapear)
             .ToList();
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TPromotion>> CrearPromocionAsync(Guid adminId, TCreatePromotion datos)
+    public async Task<Response<TPromotion>> CrearPromocionAsync(Guid adminId, TCreatePromotion datos)
     {
         var resultado = new Response<TPromotion>();
-        if (!EsAdmin(adminId))
+        if (!await EsAdminAsync(adminId))
         {
             resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (string.IsNullOrWhiteSpace(datos.Title))
         {
             resultado.lpError("Datos inválidos", "El título es obligatorio.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (datos.Amount <= 0)
         {
             resultado.lpError("Datos inválidos", "El monto debe ser mayor a cero.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         var promo = new Promotion
@@ -71,49 +71,49 @@ public class PromotionLN : IPromotionLN
         };
 
         _unitOfWork.Promotions.Insertar(promo);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = Mapear(promo);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TPromotion>> ToggleActivoAsync(Guid adminId, Guid promotionId)
+    public async Task<Response<TPromotion>> ToggleActivoAsync(Guid adminId, Guid promotionId)
     {
         var resultado = new Response<TPromotion>();
-        if (!EsAdmin(adminId))
+        if (!await EsAdminAsync(adminId))
         {
             resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var promo = _unitOfWork.Promotions.ObtenerEntidad(p => p.Id == promotionId).ReturnValue;
+        var promo = await _unitOfWork.Promotions.ObtenerEntidadAsync(p => p.Id == promotionId);
         if (promo is null)
         {
             resultado.lpError("No encontrado", "La promoción no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         promo.IsActive = !promo.IsActive;
         _unitOfWork.Promotions.Modificar(promo);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = Mapear(promo);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TPromotionClaim>> OtorgarBonoAsync(Guid adminId, Guid targetUserId, TCreatePromotion datos)
+    public async Task<Response<TPromotionClaim>> OtorgarBonoAsync(Guid adminId, Guid targetUserId, TCreatePromotion datos)
     {
         var resultado = new Response<TPromotionClaim>();
-        if (!EsAdmin(adminId))
+        if (!await EsAdminAsync(adminId))
         {
             resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (datos.Amount <= 0)
         {
             resultado.lpError("Datos inválidos", "El monto debe ser mayor a cero.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         var ahora = DateTime.UtcNow;
@@ -129,7 +129,7 @@ public class PromotionLN : IPromotionLN
         };
         _unitOfWork.Promotions.Insertar(promo);
         // La promotion debe existir en DB antes de insertar el claim (FK promotion_claims_promotion_id_fkey)
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         var claim = new PromotionClaim
         {
@@ -141,7 +141,7 @@ public class PromotionLN : IPromotionLN
             CompletedAt = null
         };
         _unitOfWork.PromotionClaims.Insertar(claim);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = new TPromotionClaim
         {
@@ -153,26 +153,25 @@ public class PromotionLN : IPromotionLN
             CompletedAt = claim.CompletedAt
         };
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<List<TPromotionClaim>>> ObtenerBonosUsuarioAsync(Guid adminId, Guid targetUserId)
+    public async Task<Response<List<TPromotionClaim>>> ObtenerBonosUsuarioAsync(Guid adminId, Guid targetUserId)
     {
         var resultado = new Response<List<TPromotionClaim>>();
-        if (!EsAdmin(adminId))
+        if (!await EsAdminAsync(adminId))
         {
             resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var claims = _unitOfWork.PromotionClaims
-            .ObtenerEntidades(c => c.UserId == targetUserId && (c.Status == "compensacion" || c.Status == "pendiente"))
-            .ReturnValue?.ToList() ?? [];
+        var claims = await _unitOfWork.PromotionClaims
+            .ObtenerEntidadesAsync(c => c.UserId == targetUserId && (c.Status == "compensacion" || c.Status == "pendiente"));
 
         var promoIds = claims.Select(c => c.PromotionId).ToHashSet();
-        var promos = _unitOfWork.Promotions
-            .ObtenerEntidades(p => promoIds.Contains(p.Id))
-            .ReturnValue?.ToDictionary(p => p.Id) ?? [];
+        var promos = (await _unitOfWork.Promotions
+            .ObtenerEntidadesAsync(p => promoIds.Contains(p.Id)))
+            .ToDictionary(p => p.Id);
 
         resultado.ReturnValue = claims.Select(c => new TPromotionClaim
         {
@@ -184,79 +183,76 @@ public class PromotionLN : IPromotionLN
             CompletedAt = c.CompletedAt
         }).ToList();
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     // ──────────────────────────── Jugador ────────────────────────────
 
-    public Task<Response<List<TPromotion>>> ObtenerActivasAsync(Guid userId)
+    public async Task<Response<List<TPromotion>>> ObtenerActivasAsync(Guid userId)
     {
         var resultado = new Response<List<TPromotion>>();
 
-        var promos = _unitOfWork.Promotions
-            .ObtenerEntidades(p => p.IsActive && (p.EndsAt == null || p.EndsAt > DateTime.UtcNow))
-            .ReturnValue ?? [];
+        var promos = await _unitOfWork.Promotions
+            .ObtenerEntidadesAsync(p => p.IsActive && (p.EndsAt == null || p.EndsAt > DateTime.UtcNow));
 
-        var reclamadas = _unitOfWork.PromotionClaims
-            .ObtenerEntidades(c => c.UserId == userId)
-            .ReturnValue?.Select(c => c.PromotionId).ToHashSet() ?? [];
+        var reclamadas = (await _unitOfWork.PromotionClaims
+            .ObtenerEntidadesAsync(c => c.UserId == userId))
+            .Select(c => c.PromotionId).ToHashSet();
 
         var generales = promos.Where(p => !reclamadas.Contains(p.Id)).ToList();
 
         // Bonos personales otorgados por admin que el usuario aún no ha canjeado
-        var pendingIds = _unitOfWork.PromotionClaims
-            .ObtenerEntidades(c => c.UserId == userId && c.Status == "pendiente")
-            .ReturnValue?.Select(c => c.PromotionId).ToHashSet() ?? [];
+        var pendingIds = (await _unitOfWork.PromotionClaims
+            .ObtenerEntidadesAsync(c => c.UserId == userId && c.Status == "pendiente"))
+            .Select(c => c.PromotionId).ToHashSet();
 
-        var grants = _unitOfWork.Promotions
-            .ObtenerEntidades(p => pendingIds.Contains(p.Id))
-            .ReturnValue ?? [];
+        var grants = await _unitOfWork.Promotions
+            .ObtenerEntidadesAsync(p => pendingIds.Contains(p.Id));
 
         resultado.ReturnValue = generales.Concat(grants).Select(Mapear).ToList();
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TPromotionClaim>> ReclamarAsync(Guid userId, Guid promotionId)
+    public async Task<Response<TPromotionClaim>> ReclamarAsync(Guid userId, Guid promotionId)
     {
         var resultado = new Response<TPromotionClaim>();
 
-        var promo = _unitOfWork.Promotions.ObtenerEntidad(p => p.Id == promotionId).ReturnValue;
+        var promo = await _unitOfWork.Promotions.ObtenerEntidadAsync(p => p.Id == promotionId);
         if (promo is null)
         {
             resultado.lpError("No disponible", "Esta promoción no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var existingClaim = _unitOfWork.PromotionClaims
-            .ObtenerEntidad(c => c.UserId == userId && c.PromotionId == promotionId)
-            .ReturnValue;
+        var existingClaim = await _unitOfWork.PromotionClaims
+            .ObtenerEntidadAsync(c => c.UserId == userId && c.PromotionId == promotionId);
 
         var isPendingGrant = existingClaim?.Status == "pendiente";
 
         if (existingClaim is not null && !isPendingGrant)
         {
             resultado.lpError("Ya reclamada", "Ya canjeaste esta promoción.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!isPendingGrant && !promo.IsActive)
         {
             resultado.lpError("No disponible", "Esta promoción no está disponible.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (promo.EndsAt is not null && promo.EndsAt <= DateTime.UtcNow)
         {
             resultado.lpError("Bono expirado", "Esta promoción ya expiró.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var wallet = _unitOfWork.Wallets.ObtenerEntidad(w => w.UserId == userId).ReturnValue;
+        var wallet = await _unitOfWork.Wallets.ObtenerEntidadAsync(w => w.UserId == userId);
         if (wallet is null)
         {
             resultado.lpError("Error", "Billetera no encontrada.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         wallet.Balance = Math.Round(wallet.Balance + promo.Amount, 2);
@@ -270,7 +266,7 @@ public class PromotionLN : IPromotionLN
             existingClaim!.Status = "compensacion";
             existingClaim.CompletedAt = ahora;
             _unitOfWork.PromotionClaims.Modificar(existingClaim);
-            _unitOfWork.Completar();
+            await _unitOfWork.CompletarAsync();
 
             resultado.ReturnValue = new TPromotionClaim
             {
@@ -294,7 +290,7 @@ public class PromotionLN : IPromotionLN
                 CompletedAt = ahora
             };
             _unitOfWork.PromotionClaims.Insertar(claim);
-            _unitOfWork.Completar();
+            await _unitOfWork.CompletarAsync();
 
             resultado.ReturnValue = new TPromotionClaim
             {
@@ -307,21 +303,20 @@ public class PromotionLN : IPromotionLN
             };
         }
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<List<TPromotionClaim>>> ObtenerMisReclamosAsync(Guid userId)
+    public async Task<Response<List<TPromotionClaim>>> ObtenerMisReclamosAsync(Guid userId)
     {
         var resultado = new Response<List<TPromotionClaim>>();
 
-        var claims = _unitOfWork.PromotionClaims
-            .ObtenerEntidades(c => c.UserId == userId && (c.Status == "completado" || c.Status == "compensacion"))
-            .ReturnValue?.ToList() ?? [];
+        var claims = await _unitOfWork.PromotionClaims
+            .ObtenerEntidadesAsync(c => c.UserId == userId && (c.Status == "completado" || c.Status == "compensacion"));
 
         var promoIds = claims.Select(c => c.PromotionId).ToHashSet();
-        var promos = _unitOfWork.Promotions
-            .ObtenerEntidades(p => promoIds.Contains(p.Id))
-            .ReturnValue?.ToDictionary(p => p.Id) ?? [];
+        var promos = (await _unitOfWork.Promotions
+            .ObtenerEntidadesAsync(p => promoIds.Contains(p.Id)))
+            .ToDictionary(p => p.Id);
 
         resultado.ReturnValue = claims.Select(c => new TPromotionClaim
         {
@@ -333,14 +328,14 @@ public class PromotionLN : IPromotionLN
             CompletedAt = c.CompletedAt
         }).ToList();
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     // ──────────────────────────── Helpers ────────────────────────────
 
-    private bool EsAdmin(Guid userId)
+    private async Task<bool> EsAdminAsync(Guid userId)
     {
-        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == userId).ReturnValue;
+        var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == userId);
         return staff is not null && CredentialsGenerator.DetectRole(staff.Email) == "admin";
     }
 

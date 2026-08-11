@@ -20,6 +20,7 @@ public interface IUnitWork : IDisposable
     IRepositoryAD<TicketMessage> TicketMessages { get; }
     IRepositoryAD<Avatar> Avatars { get; }
     int Completar();
+    Task<int> CompletarAsync();
     Task InsertarUsuarioAuthAsync(Guid id, string email);
     Task<bool> ExisteUsuarioAuthAsync(string email);
 }

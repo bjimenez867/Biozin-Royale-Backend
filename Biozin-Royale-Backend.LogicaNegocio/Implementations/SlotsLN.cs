@@ -56,33 +56,32 @@ public class SlotsLN : ISlotsLN
 
     public SlotsLN(IUnitWork unitOfWork) => _unitOfWork = unitOfWork;
 
-    public Task<Response<TSlotsSpinResult>> SpinAsync(Guid userId, decimal bet)
+    public async Task<Response<TSlotsSpinResult>> SpinAsync(Guid userId, decimal bet)
     {
         var resultado = new Response<TSlotsSpinResult>();
 
         if (!ValidBets.Contains(bet))
         {
             resultado.lpError("Apuesta inválida", "El monto de apuesta no es válido.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var wallet = _unitOfWork.Wallets.ObtenerEntidad(w => w.UserId == userId).ReturnValue;
+        var wallet = await _unitOfWork.Wallets.ObtenerEntidadAsync(w => w.UserId == userId);
         if (wallet is null)
         {
             resultado.lpError("Error", "Billetera no encontrada.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (wallet.Balance < bet)
         {
             resultado.lpError("Fondos insuficientes", "No tienes saldo suficiente para jugar.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         var grid = GenerateGrid();
         var (win, hits) = EvalLines(grid, bet);
 
-        var balanceBefore = wallet.Balance;
         wallet.Balance = Math.Round(wallet.Balance - bet + win, 2);
         wallet.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Wallets.Modificar(wallet);
@@ -101,7 +100,7 @@ public class SlotsLN : ISlotsLN
             CreatedAt = DateTime.UtcNow,
         };
         _unitOfWork.GamesHistory.Insertar(spinRecord);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = new TSlotsSpinResult
         {
@@ -112,7 +111,7 @@ public class SlotsLN : ISlotsLN
             Hits = hits,
         };
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     private static string[][] GenerateGrid()

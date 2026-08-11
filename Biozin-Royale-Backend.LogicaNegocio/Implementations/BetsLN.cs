@@ -28,9 +28,7 @@ public class BetsLN : IBetsLN
             return resultado;
         }
 
-        var walletResult = _unitOfWork.Wallets.ObtenerEntidad(w => w.UserId == userId);
-        var wallet = walletResult.ReturnValue;
-
+        var wallet = await _unitOfWork.Wallets.ObtenerEntidadAsync(w => w.UserId == userId);
         if (wallet is null)
         {
             resultado.lpError("Error", "Billetera no encontrada.");
@@ -100,7 +98,7 @@ public class BetsLN : IBetsLN
             Selections = JsonSerializer.Serialize(selections),
         };
         _unitOfWork.GamesHistory.Insertar(bet);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = new TBetResult
         {
@@ -112,41 +110,41 @@ public class BetsLN : IBetsLN
         return resultado;
     }
 
-    public Task<Response<IEnumerable<TMyBet>>> GetMyBetsAsync(Guid userId)
+    public async Task<Response<IEnumerable<TMyBet>>> GetMyBetsAsync(Guid userId)
     {
         var resultado = new Response<IEnumerable<TMyBet>>();
         var cutoff = DateTime.UtcNow.AddHours(-2);
 
-        var bets = _unitOfWork.GamesHistory
-            .ObtenerEntidades(b => b.UserId == userId
+        var bets = await _unitOfWork.GamesHistory
+            .ObtenerEntidadesAsync(b => b.UserId == userId
                 && b.GameType == "sports"
-                && (b.Status == "pending" || (b.Status == "settled" && b.SettledAt >= cutoff)))
-            .ReturnValue!
-            .OrderByDescending(b => b.CreatedAt);
+                && (b.Status == "pending" || (b.Status == "settled" && b.SettledAt >= cutoff)));
 
-        resultado.ReturnValue = bets.Select(b =>
-        {
-            var selections = string.IsNullOrEmpty(b.Selections)
-                ? []
-                : JsonSerializer.Deserialize<List<TBetSelectionDetail>>(b.Selections) ?? [];
-            var totalOdds = selections.Count > 0
-                ? selections.Aggregate(1m, (acc, s) => acc * s.Odds)
-                : 1m;
-
-            return new TMyBet
+        resultado.ReturnValue = bets
+            .OrderByDescending(b => b.CreatedAt)
+            .Select(b =>
             {
-                Id            = b.Id,
-                Amount        = b.Amount,
-                TotalOdds     = totalOdds,
-                PotentialWin  = Math.Round(b.Amount * totalOdds, 2),
-                Status        = b.Status == "settled" ? b.Result : "pending",
-                Payout        = b.Payout,
-                CreatedAt     = b.CreatedAt,
-                SettledAt     = b.SettledAt,
-                Selections    = selections,
-            };
-        });
+                var selections = string.IsNullOrEmpty(b.Selections)
+                    ? []
+                    : JsonSerializer.Deserialize<List<TBetSelectionDetail>>(b.Selections) ?? [];
+                var totalOdds = selections.Count > 0
+                    ? selections.Aggregate(1m, (acc, s) => acc * s.Odds)
+                    : 1m;
 
-        return Task.FromResult(resultado);
+                return new TMyBet
+                {
+                    Id            = b.Id,
+                    Amount        = b.Amount,
+                    TotalOdds     = totalOdds,
+                    PotentialWin  = Math.Round(b.Amount * totalOdds, 2),
+                    Status        = b.Status == "settled" ? b.Result : "pending",
+                    Payout        = b.Payout,
+                    CreatedAt     = b.CreatedAt,
+                    SettledAt     = b.SettledAt,
+                    Selections    = selections,
+                };
+            });
+
+        return resultado;
     }
 }

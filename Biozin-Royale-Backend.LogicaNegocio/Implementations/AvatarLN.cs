@@ -38,34 +38,30 @@ public class AvatarLN : IAvatarLN
         return resultado;
     }
 
-    public Task<Response<bool>> ActualizarAvatarAsync(Guid userId, int avatarId)
+    public async Task<Response<bool>> ActualizarAvatarAsync(Guid userId, int avatarId)
     {
         var resultado = new Response<bool>();
 
-        var avatar = _unitOfWork.Avatars
-            .ObtenerEntidad(a => a.Id == avatarId && a.IsActive)
-            .ReturnValue;
+        var avatar = await _unitOfWork.Avatars.ObtenerEntidadAsync(a => a.Id == avatarId && a.IsActive);
         if (avatar is null)
         {
             resultado.lpError("Avatar no encontrado", "El avatar seleccionado no existe.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var perfil = _unitOfWork.Profiles
-            .ObtenerEntidad(p => p.UserId == userId)
-            .ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No se encontró el perfil del usuario.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         perfil.AvatarId  = avatarId;
         perfil.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 }

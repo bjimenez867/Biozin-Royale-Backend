@@ -18,14 +18,14 @@ public class RuletaLN : IRuletaLN
 
     public RuletaLN(IUnitWork unitOfWork) => _unitOfWork = unitOfWork;
 
-    public Task<Response<TRuletaSpinResult>> SpinAsync(Guid userId, Dictionary<string, decimal> bets)
+    public async Task<Response<TRuletaSpinResult>> SpinAsync(Guid userId, Dictionary<string, decimal> bets)
     {
         var resultado = new Response<TRuletaSpinResult>();
 
         if (bets is null || bets.Count == 0)
         {
             resultado.lpError("Sin apuesta", "Debes colocar al menos una apuesta.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         foreach (var (id, stake) in bets)
@@ -33,28 +33,28 @@ public class RuletaLN : IRuletaLN
             if (!ValidBetIds.Contains(id))
             {
                 resultado.lpError("Apuesta inválida", $"ID de apuesta no reconocido: {id}");
-                return Task.FromResult(resultado);
+                return resultado;
             }
             if (stake <= 0)
             {
                 resultado.lpError("Apuesta inválida", "Cada apuesta debe ser mayor a cero.");
-                return Task.FromResult(resultado);
+                return resultado;
             }
         }
 
         var totalStake = bets.Values.Sum();
 
-        var wallet = _unitOfWork.Wallets.ObtenerEntidad(w => w.UserId == userId).ReturnValue;
+        var wallet = await _unitOfWork.Wallets.ObtenerEntidadAsync(w => w.UserId == userId);
         if (wallet is null)
         {
             resultado.lpError("Error", "Billetera no encontrada.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (wallet.Balance < totalStake)
         {
             resultado.lpError("Fondos insuficientes", "No tienes saldo suficiente para esta apuesta.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         var winning = RandomNumberGenerator.GetInt32(37); // 0–36 inclusive
@@ -84,7 +84,7 @@ public class RuletaLN : IRuletaLN
             SettledAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
         });
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = new TRuletaSpinResult
         {
@@ -93,7 +93,7 @@ public class RuletaLN : IRuletaLN
             NewBalance    = wallet.Balance,
         };
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     private static bool BetWins(string id, int w) => id switch

@@ -36,37 +36,37 @@ public class ProfileLN : IProfileLN
         });
     }
 
-    public Task<Response<TPerfilResultado>> ObtenerPerfilAsync(Guid userId)
+    public async Task<Response<TPerfilResultado>> ObtenerPerfilAsync(Guid userId)
     {
         var resultado = new Response<TPerfilResultado>();
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: ResolverAvatarUrl(perfil));
-        return Task.FromResult(resultado);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: await ResolverAvatarUrlAsync(perfil));
+        return resultado;
     }
 
-    public Task<Response<TPerfilResultado>> ActualizarPerfilAsync(Guid userId, TActualizarPerfil datos)
+    public async Task<Response<TPerfilResultado>> ActualizarPerfilAsync(Guid userId, TActualizarPerfil datos)
     {
         var resultado = new Response<TPerfilResultado>();
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!string.IsNullOrWhiteSpace(datos.Username) && datos.Username != perfil.Username)
         {
-            var enUso = _unitOfWork.Profiles.ObtenerEntidad(p => p.Username == datos.Username).ReturnValue;
+            var enUso = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Username == datos.Username);
             if (enUso is not null)
             {
                 resultado.lpError("Usuario en uso", "Ese nombre de usuario ya está ocupado.");
-                return Task.FromResult(resultado);
+                return resultado;
             }
             perfil.Username = datos.Username;
         }
@@ -78,39 +78,39 @@ public class ProfileLN : IProfileLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: ResolverAvatarUrl(perfil));
-        return Task.FromResult(resultado);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: await ResolverAvatarUrlAsync(perfil));
+        return resultado;
     }
 
-    public Task<Response<bool>> CambiarPasswordAsync(Guid userId, string oldPassword, string newPassword)
+    public async Task<Response<bool>> CambiarPasswordAsync(Guid userId, string oldPassword, string newPassword)
     {
         var resultado = new Response<bool>();
 
         if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
         {
             resultado.lpError("Contraseña inválida", "La nueva contraseña debe tener al menos 8 caracteres.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (string.IsNullOrEmpty(perfil.Password))
         {
             resultado.lpError("Cuenta sin contraseña", "Tu cuenta inició sesión con Google y no tiene una contraseña configurada.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!BCrypt.Net.BCrypt.Verify(oldPassword, perfil.Password))
         {
             resultado.lpError("Contraseña incorrecta", "La contraseña actual es incorrecta.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         perfil.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
@@ -118,35 +118,35 @@ public class ProfileLN : IProfileLN
 
         _unitOfWork.Profiles.Modificar(perfil);
         RegistrarEvento(perfil.Id, "password_change");
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     private static readonly Regex PinFormato = new(@"^\d{4}$");
 
-    public Task<Response<bool>> CrearPinAsync(Guid userId, string pin)
+    public async Task<Response<bool>> CrearPinAsync(Guid userId, string pin)
     {
         var resultado = new Response<bool>();
 
         if (!PinFormato.IsMatch(pin ?? string.Empty))
         {
             resultado.lpError("PIN inválido", "El PIN debe tener exactamente 4 dígitos.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!string.IsNullOrEmpty(perfil.PinHash))
         {
             resultado.lpError("PIN ya configurado", "Ya tienes un PIN configurado. Usa la opción de cambiar PIN.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         perfil.PinHash = BCrypt.Net.BCrypt.HashPassword(pin);
@@ -155,39 +155,39 @@ public class ProfileLN : IProfileLN
 
         _unitOfWork.Profiles.Modificar(perfil);
         RegistrarEvento(perfil.Id, "pin_created");
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> CambiarPinAsync(Guid userId, string oldPin, string newPin)
+    public async Task<Response<bool>> CambiarPinAsync(Guid userId, string oldPin, string newPin)
     {
         var resultado = new Response<bool>();
 
         if (!PinFormato.IsMatch(newPin ?? string.Empty))
         {
             resultado.lpError("PIN inválido", "El nuevo PIN debe tener exactamente 4 dígitos.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (string.IsNullOrEmpty(perfil.PinHash))
         {
             resultado.lpError("Sin PIN configurado", "Todavía no tienes un PIN configurado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!BCrypt.Net.BCrypt.Verify(oldPin, perfil.PinHash))
         {
             resultado.lpError("PIN incorrecto", "El PIN actual es incorrecto.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         perfil.PinHash = BCrypt.Net.BCrypt.HashPassword(newPin);
@@ -195,60 +195,60 @@ public class ProfileLN : IProfileLN
 
         _unitOfWork.Profiles.Modificar(perfil);
         RegistrarEvento(perfil.Id, "pin_changed");
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> VerificarPinAsync(Guid userId, string pin)
+    public async Task<Response<bool>> VerificarPinAsync(Guid userId, string pin)
     {
         var resultado = new Response<bool>();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!perfil.PinEnabled || string.IsNullOrEmpty(perfil.PinHash))
         {
             resultado.lpError("Sin PIN configurado", "Todavía no tienes un PIN activo.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!BCrypt.Net.BCrypt.Verify(pin, perfil.PinHash))
         {
             resultado.lpError("PIN incorrecto", "El PIN ingresado es incorrecto.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> CambiarEstadoPinAsync(Guid userId, string pin, bool enabled)
+    public async Task<Response<bool>> CambiarEstadoPinAsync(Guid userId, string pin, bool enabled)
     {
         var resultado = new Response<bool>();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (string.IsNullOrEmpty(perfil.PinHash))
         {
             resultado.lpError("Sin PIN configurado", "Todavía no tienes un PIN configurado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!BCrypt.Net.BCrypt.Verify(pin, perfil.PinHash))
         {
             resultado.lpError("PIN incorrecto", "El PIN ingresado es incorrecto.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         perfil.PinEnabled = enabled;
@@ -262,21 +262,21 @@ public class ProfileLN : IProfileLN
 
         _unitOfWork.Profiles.Modificar(perfil);
         RegistrarEvento(perfil.Id, enabled ? "pin_enabled" : "pin_disabled");
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> CambiarEstadoTwoFactorAsync(Guid userId, string password, bool enabled)
+    public async Task<Response<bool>> CambiarEstadoTwoFactorAsync(Guid userId, string password, bool enabled)
     {
         var resultado = new Response<bool>();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         // Las cuentas de Google no tienen contraseña propia, así que no hay nada que
@@ -285,7 +285,7 @@ public class ProfileLN : IProfileLN
         if (!string.IsNullOrEmpty(perfil.Password) && !BCrypt.Net.BCrypt.Verify(password, perfil.Password))
         {
             resultado.lpError("Contraseña incorrecta", "La contraseña ingresada es incorrecta.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         perfil.TwoFactorEnabled = enabled;
@@ -295,49 +295,50 @@ public class ProfileLN : IProfileLN
 
         _unitOfWork.Profiles.Modificar(perfil);
         RegistrarEvento(perfil.Id, enabled ? "twofactor_enabled" : "twofactor_disabled");
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<List<TSecurityEvent>>> ObtenerHistorialSeguridadAsync(Guid userId)
+    public async Task<Response<List<TSecurityEvent>>> ObtenerHistorialSeguridadAsync(Guid userId)
     {
         var resultado = new Response<List<TSecurityEvent>>();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         // 50: sirve tanto a la tarjeta compacta de Ajustes (solo muestra los primeros 3)
         // como a la pantalla de "Historial de seguridad" completo.
-        var eventos = _unitOfWork.SecurityEvents
-            .ObtenerEntidades(e => e.ProfileId == perfil.Id).ReturnValue
+        var eventos = await _unitOfWork.SecurityEvents.ObtenerEntidadesAsync(e => e.ProfileId == perfil.Id);
+
+        resultado.ReturnValue = eventos
             .OrderByDescending(e => e.CreatedAt)
             .Take(50)
             .Select(e => new TSecurityEvent { EventType = e.EventType, CreatedAt = e.CreatedAt })
             .ToList();
 
-        resultado.ReturnValue = eventos;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<List<TSession>>> ObtenerSesionesAsync(Guid userId, Guid? currentSessionId)
+    public async Task<Response<List<TSession>>> ObtenerSesionesAsync(Guid userId, Guid? currentSessionId)
     {
         var resultado = new Response<List<TSession>>();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var sesiones = _unitOfWork.Sessions
-            .ObtenerEntidades(s => s.ProfileId == perfil.Id && s.IsActive).ReturnValue
+        var sesiones = await _unitOfWork.Sessions.ObtenerEntidadesAsync(s => s.ProfileId == perfil.Id && s.IsActive);
+
+        resultado.ReturnValue = sesiones
             .OrderByDescending(s => s.CreatedAt)
             .Select(s => new TSession
             {
@@ -349,53 +350,51 @@ public class ProfileLN : IProfileLN
             })
             .ToList();
 
-        resultado.ReturnValue = sesiones;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> CerrarSesionAsync(Guid userId, Guid sessionId)
+    public async Task<Response<bool>> CerrarSesionAsync(Guid userId, Guid sessionId)
     {
         var resultado = new Response<bool>();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var sesion = _unitOfWork.Sessions.ObtenerEntidad(s => s.Id == sessionId && s.ProfileId == perfil.Id).ReturnValue;
+        var sesion = await _unitOfWork.Sessions.ObtenerEntidadAsync(s => s.Id == sessionId && s.ProfileId == perfil.Id);
         if (sesion is null || !sesion.IsActive)
         {
             resultado.lpError("Sesión no encontrada", "Esa sesión ya no está activa.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         sesion.IsActive = false;
         sesion.RevokedAt = DateTime.UtcNow;
         _unitOfWork.Sessions.Modificar(sesion);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         _cache.Set(sesion.Id, true, TimeSpan.FromSeconds(30));
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> CerrarOtrasSesionesAsync(Guid userId, Guid currentSessionId)
+    public async Task<Response<bool>> CerrarOtrasSesionesAsync(Guid userId, Guid currentSessionId)
     {
         var resultado = new Response<bool>();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var otras = _unitOfWork.Sessions
-            .ObtenerEntidades(s => s.ProfileId == perfil.Id && s.IsActive && s.Id != currentSessionId).ReturnValue
-            .ToList();
+        var otras = await _unitOfWork.Sessions
+            .ObtenerEntidadesAsync(s => s.ProfileId == perfil.Id && s.IsActive && s.Id != currentSessionId);
 
         foreach (var sesion in otras)
         {
@@ -405,29 +404,23 @@ public class ProfileLN : IProfileLN
             _cache.Set(sesion.Id, true, TimeSpan.FromSeconds(30));
         }
 
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId)
+    public async Task<Response<List<TAdminUser>>> ObtenerUsuariosAsync(Guid adminId)
     {
         var resultado = new Response<List<TAdminUser>>();
 
-        var staffEmail = _unitOfWork.StaffMembers
-            .ObtenerEntidad(s => s.Id == adminId).ReturnValue?.Email;
-        var esAdmin = staffEmail is not null && CredentialsGenerator.DetectRole(staffEmail) == "admin";
-
-        if (!esAdmin)
+        if (!await EsAdminAsync(adminId))
         {
             resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var perfiles = _unitOfWork.Profiles
-            .ObtenerEntidades(p => !p.IsGuest)
-            .ReturnValue ?? [];
+        var perfiles = await _unitOfWork.Profiles.ObtenerEntidadesAsync(p => !p.IsGuest);
 
         resultado.ReturnValue = perfiles
             .OrderByDescending(p => p.CreatedAt)
@@ -441,33 +434,32 @@ public class ProfileLN : IProfileLN
                 CreatedAt = p.CreatedAt
             }).ToList();
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TUserBlockInfo>> ObtenerBloqueoActivoAsync(Guid adminId, Guid userId)
+    public async Task<Response<TUserBlockInfo>> ObtenerBloqueoActivoAsync(Guid adminId, Guid userId)
     {
         var resultado = new Response<TUserBlockInfo>();
 
-        if (!EsAdmin(adminId))
+        if (!await EsAdminAsync(adminId))
         {
             resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Usuario no encontrado", "No existe un perfil con ese identificador.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var bloqueo = _unitOfWork.UserBlocks
-            .ObtenerEntidad(b => b.ProfileId == perfil.Id && b.IsActive).ReturnValue;
+        var bloqueo = await _unitOfWork.UserBlocks
+            .ObtenerEntidadAsync(b => b.ProfileId == perfil.Id && b.IsActive);
 
         if (bloqueo is not null)
         {
-            var bloqueadoPor = _unitOfWork.StaffMembers
-                .ObtenerEntidad(s => s.Id == bloqueo.BlockedBy).ReturnValue;
+            var bloqueadoPor = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == bloqueo.BlockedBy);
 
             resultado.ReturnValue = new TUserBlockInfo
             {
@@ -479,43 +471,43 @@ public class ProfileLN : IProfileLN
             };
         }
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> BloquearUsuarioAsync(Guid adminId, Guid userId, TBlockUserRequest datos)
+    public async Task<Response<bool>> BloquearUsuarioAsync(Guid adminId, Guid userId, TBlockUserRequest datos)
     {
         var resultado = new Response<bool>();
 
-        if (!EsAdmin(adminId))
+        if (!await EsAdminAsync(adminId))
         {
             resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         var razonesValidas = new[] { "fraude", "incumplimiento", "conducta", "sospechoso", "otro" };
         if (!razonesValidas.Contains(datos.Reason))
         {
             resultado.lpError("Datos inválidos", "La razón de bloqueo no es válida.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (string.IsNullOrWhiteSpace(datos.Message))
         {
             resultado.lpError("Datos inválidos", "El mensaje para el usuario es requerido.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Usuario no encontrado", "No existe un perfil con ese identificador.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (perfil.Status == "blocked")
         {
             resultado.lpError("Ya bloqueado", "Este usuario ya se encuentra bloqueado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         var bloqueo = new UserBlock
@@ -534,36 +526,36 @@ public class ProfileLN : IProfileLN
 
         _unitOfWork.UserBlocks.Insertar(bloqueo);
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> DesbloquearUsuarioAsync(Guid adminId, Guid userId)
+    public async Task<Response<bool>> DesbloquearUsuarioAsync(Guid adminId, Guid userId)
     {
         var resultado = new Response<bool>();
 
-        if (!EsAdmin(adminId))
+        if (!await EsAdminAsync(adminId))
         {
             resultado.lpError("Acceso denegado", "No tienes permisos para esta acción.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null)
         {
             resultado.lpError("Usuario no encontrado", "No existe un perfil con ese identificador.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var bloqueo = _unitOfWork.UserBlocks
-            .ObtenerEntidad(b => b.ProfileId == perfil.Id && b.IsActive).ReturnValue;
+        var bloqueo = await _unitOfWork.UserBlocks
+            .ObtenerEntidadAsync(b => b.ProfileId == perfil.Id && b.IsActive);
 
         if (bloqueo is null)
         {
             resultado.lpError("No bloqueado", "Este usuario no tiene un bloqueo activo.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         bloqueo.IsActive = false;
@@ -575,46 +567,46 @@ public class ProfileLN : IProfileLN
 
         _unitOfWork.UserBlocks.Modificar(bloqueo);
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    private bool EsAdmin(Guid adminId)
+    private async Task<bool> EsAdminAsync(Guid adminId)
     {
-        var staffEmail = _unitOfWork.StaffMembers
-            .ObtenerEntidad(s => s.Id == adminId).ReturnValue?.Email;
+        var staffEmail = (await _unitOfWork.StaffMembers
+            .ObtenerEntidadAsync(s => s.Id == adminId))?.Email;
         return staffEmail is not null && CredentialsGenerator.DetectRole(staffEmail) == "admin";
     }
 
-    public Task<Response<bool>> CheckUsernameAsync(string username, Guid userId)
+    public async Task<Response<bool>> CheckUsernameAsync(string username, Guid userId)
     {
         var resultado = new Response<bool>();
 
         if (string.IsNullOrWhiteSpace(username) || username.Length < 3 || username.Length > 20)
         {
             resultado.ReturnValue = false;
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         // El propio username actual del usuario siempre se considera disponible
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil?.Username == username)
         {
             resultado.ReturnValue = true;
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var enUso = _unitOfWork.Profiles.ObtenerEntidad(p => p.Username == username).ReturnValue;
+        var enUso = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Username == username);
         resultado.ReturnValue = enUso is null;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId)
+    public async Task<Response<TEstadisticas>> ObtenerEstadisticasAsync(Guid userId)
     {
         var resultado = new Response<TEstadisticas>();
-        var stats = _unitOfWork.Statistics.ObtenerEntidad(s => s.UserId == userId).ReturnValue;
+        var stats = await _unitOfWork.Statistics.ObtenerEntidadAsync(s => s.UserId == userId);
 
         // Sin filas en bets para este usuario (aún no jugó): se devuelven ceros, no error.
         resultado.ReturnValue = stats is null
@@ -626,15 +618,13 @@ public class ProfileLN : IProfileLN
                 ApostadoTotal = stats.ApostadoTotal,
                 GananciasNetas = stats.GananciasNetas
             };
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    private string? ResolverAvatarUrl(Profile perfil)
+    private async Task<string?> ResolverAvatarUrlAsync(Profile perfil)
     {
         if (perfil.AvatarId is null) return null;
-        var avatar = _unitOfWork.Avatars
-            .ObtenerEntidad(a => a.Id == perfil.AvatarId)
-            .ReturnValue;
+        var avatar = await _unitOfWork.Avatars.ObtenerEntidadAsync(a => a.Id == perfil.AvatarId);
         return avatar is null ? null : $"{_avatarsBaseUrl}/{avatar.StoragePath}";
     }
 }
