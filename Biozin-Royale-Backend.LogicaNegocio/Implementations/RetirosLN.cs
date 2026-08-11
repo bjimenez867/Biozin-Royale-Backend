@@ -36,7 +36,7 @@ public class RetirosLN : IRetirosLN
             return resultado;
         }
 
-        var wallet = _unitOfWork.Wallets.ObtenerEntidad(w => w.UserId == userId).ReturnValue;
+        var wallet = await _unitOfWork.Wallets.ObtenerEntidadAsync(w => w.UserId == userId);
         if (wallet is null)
         {
             resultado.lpError("Billetera", "No se encontró la billetera del usuario.");
@@ -49,9 +49,8 @@ public class RetirosLN : IRetirosLN
             return resultado;
         }
 
-        var metodo = _unitOfWork.PaymentMethods
-            .ObtenerEntidad(m => m.Id == request.PaymentMethodId && m.WalletId == wallet.Id)
-            .ReturnValue;
+        var metodo = await _unitOfWork.PaymentMethods
+            .ObtenerEntidadAsync(m => m.Id == request.PaymentMethodId && m.WalletId == wallet.Id);
 
         if (metodo is null)
         {
@@ -63,7 +62,7 @@ public class RetirosLN : IRetirosLN
             return await ProcesarPayPalAsync(wallet, metodo, request.Amount);
 
         // Tarjeta: retiro pendiente, se procesa manualmente
-        return ProcesarTarjetaPendiente(wallet, metodo, request.Amount);
+        return await ProcesarTarjetaPendienteAsync(wallet, metodo, request.Amount);
     }
 
     // ── PayPal (automático) ───────────────────────────────────────────────────
@@ -75,7 +74,7 @@ public class RetirosLN : IRetirosLN
 
         var tx = CrearTransaccion(wallet, "paypal", metodo.Email!, amount);
         _unitOfWork.WalletTransactions.Insertar(tx);
-        _unitOfWork.Completar();  // persiste la tx como "pending" antes de llamar PayPal
+        await _unitOfWork.CompletarAsync();  // persiste la tx como "pending" antes de llamar PayPal
 
         string token;
         try   { token = await ObtenerTokenPayPalAsync(); }
@@ -83,7 +82,7 @@ public class RetirosLN : IRetirosLN
         {
             tx.Status = "failed";
             _unitOfWork.WalletTransactions.Modificar(tx);
-            _unitOfWork.Completar();
+            await _unitOfWork.CompletarAsync();
             resultado.lpError("PayPal", "Error al conectar con PayPal. Intentá de nuevo.");
             return resultado;
         }
@@ -94,7 +93,7 @@ public class RetirosLN : IRetirosLN
         {
             tx.Status = "failed";
             _unitOfWork.WalletTransactions.Modificar(tx);
-            _unitOfWork.Completar();
+            await _unitOfWork.CompletarAsync();
             resultado.lpError("PayPal", "No se pudo procesar el pago con PayPal. Verificá que la cuenta esté activa.");
             return resultado;
         }
@@ -106,9 +105,9 @@ public class RetirosLN : IRetirosLN
         wallet.Balance   = Math.Round(wallet.Balance - amount, 2);
         wallet.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Wallets.Modificar(wallet);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
-        EnviarComprobanteAsync(wallet, tx, "completed");
+        _ = EnviarComprobanteAsync(wallet, tx, "completed");
 
         resultado.ReturnValue = new TRetiroResultado { TransactionId = tx.Id, NewBalance = wallet.Balance, ReceiptNumber = tx.ReceiptNumber };
         return resultado;
@@ -116,7 +115,7 @@ public class RetirosLN : IRetirosLN
 
     // ── Tarjeta (pendiente, procesado por admin) ──────────────────────────────
 
-    private Response<TRetiroResultado> ProcesarTarjetaPendiente(
+    private async Task<Response<TRetiroResultado>> ProcesarTarjetaPendienteAsync(
         Wallet wallet, PaymentMethod metodo, decimal amount)
     {
         var resultado = new Response<TRetiroResultado>();
@@ -131,9 +130,9 @@ public class RetirosLN : IRetirosLN
         wallet.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Wallets.Modificar(wallet);
 
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
-        EnviarComprobanteAsync(wallet, tx, "pending");
+        _ = EnviarComprobanteAsync(wallet, tx, "pending");
 
         resultado.ReturnValue = new TRetiroResultado { TransactionId = tx.Id, NewBalance = wallet.Balance, ReceiptNumber = tx.ReceiptNumber };
         return resultado;
@@ -141,9 +140,9 @@ public class RetirosLN : IRetirosLN
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private void EnviarComprobanteAsync(Wallet wallet, WalletTransaction tx, string estado)
+    private async Task EnviarComprobanteAsync(Wallet wallet, WalletTransaction tx, string estado)
     {
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == wallet.UserId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == wallet.UserId);
         if (perfil is null || string.IsNullOrEmpty(perfil.Email)) return;
 
         var remitente = _config["Mail:Remitente"] ?? _config["Mail:Usuario"]!;

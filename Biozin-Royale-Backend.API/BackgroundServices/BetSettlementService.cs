@@ -56,10 +56,8 @@ public class BetSettlementService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitWork>();
 
-        var pendingBets = unitOfWork.GamesHistory
-            .ObtenerEntidades(b => b.GameType == "sports" && b.Status == "pending")
-            .ReturnValue!
-            .ToList();
+        var pendingBets = await unitOfWork.GamesHistory
+            .ObtenerEntidadesAsync(b => b.GameType == "sports" && b.Status == "pending");
 
         if (pendingBets.Count == 0) return;
 
@@ -140,7 +138,7 @@ public class BetSettlementService : BackgroundService
 
             if (won)
             {
-                var wallet = unitOfWork.Wallets.ObtenerEntidad(w => w.UserId == bet.UserId).ReturnValue;
+                var wallet = await unitOfWork.Wallets.ObtenerEntidadAsync(w => w.UserId == bet.UserId);
                 if (wallet is not null)
                 {
                     var before = wallet.Balance;
@@ -165,7 +163,7 @@ public class BetSettlementService : BackgroundService
             }
         }
 
-        unitOfWork.Completar();
+        await unitOfWork.CompletarAsync();
     }
 
     private static decimal? ParseScore(List<ScoreEntry> scores, string teamName)

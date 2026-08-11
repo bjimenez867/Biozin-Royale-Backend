@@ -31,7 +31,7 @@ public class AuthLN : IAuthLN
         return false;
     }
 
-    private void RegistrarIntentoFallido(Profile perfil)
+    private async Task RegistrarIntentoFallidoAsync(Profile perfil)
     {
         perfil.FailedLoginAttempts++;
         if (perfil.FailedLoginAttempts >= MaxIntentosFallidos)
@@ -43,17 +43,17 @@ public class AuthLN : IAuthLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
     }
 
-    private void RestablecerIntentosFallidos(Profile perfil)
+    private async Task RestablecerIntentosFallidosAsync(Profile perfil)
     {
         if (perfil.FailedLoginAttempts == 0 && perfil.LockedUntil is null) return;
 
         perfil.FailedLoginAttempts = 0;
         perfil.LockedUntil = null;
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
     }
 
     // Overloads para StaffMember: RestablecerPasswordAsync maneja el reset de staff
@@ -70,7 +70,7 @@ public class AuthLN : IAuthLN
         return false;
     }
 
-    private void RegistrarIntentoFallido(StaffMember staff)
+    private async Task RegistrarIntentoFallidoAsync(StaffMember staff)
     {
         staff.FailedLoginAttempts++;
         if (staff.FailedLoginAttempts >= MaxIntentosFallidos)
@@ -88,17 +88,17 @@ public class AuthLN : IAuthLN
         staff.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.StaffMembers.Modificar(staff);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
     }
 
-    private void RestablecerIntentosFallidos(StaffMember staff)
+    private async Task RestablecerIntentosFallidosAsync(StaffMember staff)
     {
         if (staff.FailedLoginAttempts == 0 && staff.LockedUntil is null) return;
 
         staff.FailedLoginAttempts = 0;
         staff.LockedUntil = null;
         _unitOfWork.StaffMembers.Modificar(staff);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
     }
 
     private readonly IUnitWork _unitOfWork;
@@ -116,10 +116,10 @@ public class AuthLN : IAuthLN
         _avatarsBaseUrl = configuration["Supabase:AvatarsBucketBaseUrl"] ?? "";
     }
 
-    private string? ResolverAvatarUrl(Profile perfil)
+    private async Task<string?> ResolverAvatarUrlAsync(Profile perfil)
     {
         if (perfil.AvatarId is null) return null;
-        var avatar = _unitOfWork.Avatars.ObtenerEntidad(a => a.Id == perfil.AvatarId).ReturnValue;
+        var avatar = await _unitOfWork.Avatars.ObtenerEntidadAsync(a => a.Id == perfil.AvatarId);
         return avatar is null ? null : $"{_avatarsBaseUrl}/{avatar.StoragePath}";
     }
 
@@ -150,8 +150,8 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
-        var existente = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == email);
-        if (existente.ReturnValue is not null)
+        var existente = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Email == email);
+        if (existente is not null)
         {
             resultado.lpError("Correo en uso", "Ya existe una cuenta registrada con este correo.");
             return resultado;
@@ -166,7 +166,7 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
-        var username = GenerarUsernameUnico(datos.Nombre);
+        var username = await GenerarUsernameUnicoAsync(datos.Nombre);
         var id = Guid.NewGuid();
         var ahora = DateTime.UtcNow;
 
@@ -187,7 +187,7 @@ public class AuthLN : IAuthLN
             Country = PhoneCountryLookup.GetCountry(datos.Phone),
             Password = BCrypt.Net.BCrypt.HashPassword(datos.Password),
             EmailVerified = false,
-            PlayerId = GenerarPlayerIdUnico(),
+            PlayerId = await GenerarPlayerIdUnicoAsync(),
         };
 
         var wallet = new Wallet
@@ -201,13 +201,13 @@ public class AuthLN : IAuthLN
 
         _unitOfWork.Profiles.Insertar(perfil);
         _unitOfWork.Wallets.Insertar(wallet);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         // Enviar código de verificación (no bloqueante)
         await EnviarVerificacionAsync(email);
 
         // Devuelve perfil sin token: el usuario aún no está autenticado hasta verificar
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: ResolverAvatarUrl(perfil));
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: await ResolverAvatarUrlAsync(perfil));
         return resultado;
     }
 
@@ -224,7 +224,7 @@ public class AuthLN : IAuthLN
             return await _staffLN.LoginAsync(emailNormalizado, password, userAgent, ipAddress);
         }
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNormalizado).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Email == emailNormalizado);
         var credencialesValidas = perfil is not null && perfil.Password is not null
             && BCrypt.Net.BCrypt.Verify(password, perfil.Password);
 
@@ -233,7 +233,7 @@ public class AuthLN : IAuthLN
             // Si ya está bloqueada no se sigue contando: el bloqueo tiene duración fija.
             if (perfil is not null && perfil.Password is not null && !EstaBloqueado(perfil, out _))
             {
-                RegistrarIntentoFallido(perfil);
+                await RegistrarIntentoFallidoAsync(perfil);
             }
             resultado.lpError("Credenciales inválidas", "El correo o la contraseña son incorrectos.");
             return resultado;
@@ -247,7 +247,7 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
-        RestablecerIntentosFallidos(perfil!);
+        await RestablecerIntentosFallidosAsync(perfil!);
 
         if (!perfil!.EmailVerified)
         {
@@ -255,8 +255,8 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
-        var bloqueoActivo = _unitOfWork.UserBlocks
-            .ObtenerEntidad(b => b.ProfileId == perfil.Id && b.IsActive).ReturnValue;
+        var bloqueoActivo = await _unitOfWork.UserBlocks
+            .ObtenerEntidadAsync(b => b.ProfileId == perfil.Id && b.IsActive);
         if (bloqueoActivo is not null)
         {
             resultado.lpError("Cuenta bloqueada", bloqueoActivo.Message);
@@ -271,8 +271,8 @@ public class AuthLN : IAuthLN
         }
 
         RegistrarEvento(perfil.Id, "login");
-        var (loginToken, loginRefresh) = GenerarTokenConSesion(perfil, userAgent, ipAddress);
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, loginToken, loginRefresh, avatarUrl: ResolverAvatarUrl(perfil));
+        var (loginToken, loginRefresh) = await GenerarTokenConSesionAsync(perfil, userAgent, ipAddress);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, loginToken, loginRefresh, avatarUrl: await ResolverAvatarUrlAsync(perfil));
         return resultado;
     }
 
@@ -286,7 +286,7 @@ public class AuthLN : IAuthLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         try
         {
@@ -309,7 +309,7 @@ public class AuthLN : IAuthLN
         var resultado = new Response<TPerfilResultado>();
         var emailNorm = email.Trim().ToLowerInvariant();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Email == emailNorm);
 
         if (perfil is null || string.IsNullOrEmpty(perfil.TwoFactorCode) || perfil.TwoFactorCodeExpiresAt is null)
         {
@@ -331,23 +331,23 @@ public class AuthLN : IAuthLN
 
         if (!BCrypt.Net.BCrypt.Verify(code.Trim(), perfil.TwoFactorCode))
         {
-            RegistrarIntentoFallido(perfil);
+            await RegistrarIntentoFallidoAsync(perfil);
             resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
             return resultado;
         }
 
-        RestablecerIntentosFallidos(perfil);
+        await RestablecerIntentosFallidosAsync(perfil);
 
         perfil.TwoFactorCode = null;
         perfil.TwoFactorCodeExpiresAt = null;
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         RegistrarEvento(perfil.Id, "login");
-        var (twoFaToken, twoFaRefresh) = GenerarTokenConSesion(perfil, userAgent, ipAddress);
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, twoFaToken, twoFaRefresh, avatarUrl: ResolverAvatarUrl(perfil));
+        var (twoFaToken, twoFaRefresh) = await GenerarTokenConSesionAsync(perfil, userAgent, ipAddress);
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, twoFaToken, twoFaRefresh, avatarUrl: await ResolverAvatarUrlAsync(perfil));
         return resultado;
     }
 
@@ -356,7 +356,7 @@ public class AuthLN : IAuthLN
         var resultado = new Response<bool>();
         var emailNorm = email.Trim().ToLowerInvariant();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Email == emailNorm);
         if (perfil is not null && perfil.TwoFactorEnabled)
         {
             await GenerarYEnviarCodigo2FAAsync(perfil);
@@ -371,11 +371,11 @@ public class AuthLN : IAuthLN
     {
         var resultado = new Response<TPerfilResultado>();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == supabaseUserId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == supabaseUserId);
         if (perfil is not null)
         {
-            var bloqueoActivo = _unitOfWork.UserBlocks
-                .ObtenerEntidad(b => b.ProfileId == perfil.Id && b.IsActive).ReturnValue;
+            var bloqueoActivo = await _unitOfWork.UserBlocks
+                .ObtenerEntidadAsync(b => b.ProfileId == perfil.Id && b.IsActive);
             if (bloqueoActivo is not null)
             {
                 resultado.lpError("Cuenta bloqueada", bloqueoActivo.Message);
@@ -397,7 +397,7 @@ public class AuthLN : IAuthLN
             {
                 Id = Guid.NewGuid(),
                 UserId = supabaseUserId,
-                Username = GenerarUsernameUnico(esAnonimo ? "Invitado" : (nombreCompleto ?? email!.Split('@')[0])),
+                Username = await GenerarUsernameUnicoAsync(esAnonimo ? "Invitado" : (nombreCompleto ?? email!.Split('@')[0])),
                 DisplayName = nombreCompleto,
                 IsGuest = esAnonimo,
                 Status = "active",
@@ -407,7 +407,7 @@ public class AuthLN : IAuthLN
                 Password = null,
                 // OAuth verifica la identidad del usuario vía proveedor; los invitados no tienen correo real
                 EmailVerified = !esAnonimo,
-                PlayerId = GenerarPlayerIdUnico(),
+                PlayerId = await GenerarPlayerIdUnicoAsync(),
             };
 
             var wallet = new Wallet
@@ -421,14 +421,14 @@ public class AuthLN : IAuthLN
 
             _unitOfWork.Profiles.Insertar(perfil);
             _unitOfWork.Wallets.Insertar(wallet);
-            _unitOfWork.Completar();
+            await _unitOfWork.CompletarAsync();
         }
 
         // El JWT lo emite Supabase, no nosotros — a diferencia del login manual, aquí no
         // hay un jti propio que registrar. Supabase sí incluye un claim "session_id"
         // estable entre refrescos del mismo login, así que se usa ese como Id de Session
         // para poder listar/revocar también las sesiones de Google desde "Sesiones activas".
-        if (sessionId.HasValue && _unitOfWork.Sessions.ObtenerEntidad(s => s.Id == sessionId.Value).ReturnValue is null)
+        if (sessionId.HasValue && await _unitOfWork.Sessions.ObtenerEntidadAsync(s => s.Id == sessionId.Value) is null)
         {
             _unitOfWork.Sessions.Insertar(new Session
             {
@@ -441,10 +441,10 @@ public class AuthLN : IAuthLN
             });
             // Los invitados no tienen cuenta real que auditar todavía.
             if (!esAnonimo) RegistrarEvento(perfil.Id, "login");
-            _unitOfWork.Completar();
+            await _unitOfWork.CompletarAsync();
         }
 
-        resultado.ReturnValue = await Task.FromResult(PerfilMapper.MapearPerfil(perfil, token: null));
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null);
         return resultado;
     }
 
@@ -452,7 +452,7 @@ public class AuthLN : IAuthLN
     {
         var resultado = new Response<TPerfilResultado>();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == userId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
         if (perfil is null || !perfil.IsGuest)
         {
             resultado.lpError("Cuenta inválida", "Esta cuenta no es de invitado.");
@@ -481,8 +481,8 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
-        var existente = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == email && p.UserId != userId);
-        if (existente.ReturnValue is not null)
+        var existente = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Email == email && p.UserId != userId);
+        if (existente is not null)
         {
             resultado.lpError("Correo en uso", "Ya existe una cuenta registrada con este correo.");
             return resultado;
@@ -494,7 +494,7 @@ public class AuthLN : IAuthLN
             return resultado;
         }
 
-        perfil.Username = GenerarUsernameUnico(datos.Nombre);
+        perfil.Username = await GenerarUsernameUnicoAsync(datos.Nombre);
         perfil.DisplayName = datos.Nombre;
         perfil.Phone = datos.Phone;
         perfil.Country = PhoneCountryLookup.GetCountry(datos.Phone);
@@ -505,11 +505,11 @@ public class AuthLN : IAuthLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         await EnviarVerificacionAsync(email);
 
-        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: ResolverAvatarUrl(perfil));
+        resultado.ReturnValue = PerfilMapper.MapearPerfil(perfil, token: null, avatarUrl: await ResolverAvatarUrlAsync(perfil));
         return resultado;
     }
 
@@ -522,7 +522,7 @@ public class AuthLN : IAuthLN
         // Correos de staff (@admin.biozin.cr / @support.biozin.cr) viven en staff_members
         if (CredentialsGenerator.DetectRole(emailNorm) != "user")
         {
-            var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Email == emailNorm).ReturnValue;
+            var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Email == emailNorm);
 
             if (staff is null)
             {
@@ -537,7 +537,7 @@ public class AuthLN : IAuthLN
             staff.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.StaffMembers.Modificar(staff);
-            _unitOfWork.Completar();
+            await _unitOfWork.CompletarAsync();
 
             Console.WriteLine($"[Recuperación] Código generado para staff {emailNorm}. Enviando correo...");
 
@@ -561,7 +561,7 @@ public class AuthLN : IAuthLN
         }
 
         // Usuarios normales → profiles
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Email == emailNorm);
 
         if (perfil is null)
         {
@@ -583,7 +583,7 @@ public class AuthLN : IAuthLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         Console.WriteLine($"[Recuperación] Código generado para {emailNorm}. Enviando correo...");
 
@@ -606,14 +606,14 @@ public class AuthLN : IAuthLN
         return resultado;
     }
 
-    public Task<Response<bool>> RestablecerPasswordAsync(string email, string code, string newPassword)
+    public async Task<Response<bool>> RestablecerPasswordAsync(string email, string code, string newPassword)
     {
         var resultado = new Response<bool>();
 
         if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
         {
             resultado.lpError("Contraseña inválida", "La nueva contraseña debe tener al menos 8 caracteres.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         var emailNorm = email.Trim().ToLowerInvariant();
@@ -621,34 +621,34 @@ public class AuthLN : IAuthLN
         // Correos de staff
         if (CredentialsGenerator.DetectRole(emailNorm) != "user")
         {
-            var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Email == emailNorm).ReturnValue;
+            var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Email == emailNorm);
 
             if (staff is null || string.IsNullOrEmpty(staff.ResetCode) || staff.ResetCodeExpiresAt is null)
             {
                 resultado.lpError("Código inválido", "El código no es válido o ya fue usado.");
-                return Task.FromResult(resultado);
+                return resultado;
             }
 
             if (EstaBloqueado(staff, out var mensajeBloqueoStaff))
             {
                 resultado.lpError("Cuenta bloqueada", mensajeBloqueoStaff);
-                return Task.FromResult(resultado);
+                return resultado;
             }
 
             if (DateTime.UtcNow > staff.ResetCodeExpiresAt)
             {
                 resultado.lpError("Código expirado", "El código de recuperación ha expirado. Solicita uno nuevo.");
-                return Task.FromResult(resultado);
+                return resultado;
             }
 
             if (!BCrypt.Net.BCrypt.Verify(code.Trim(), staff.ResetCode))
             {
-                RegistrarIntentoFallido(staff);
+                await RegistrarIntentoFallidoAsync(staff);
                 resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
-                return Task.FromResult(resultado);
+                return resultado;
             }
 
-            RestablecerIntentosFallidos(staff);
+            await RestablecerIntentosFallidosAsync(staff);
 
             staff.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             staff.ResetCode = null;
@@ -657,41 +657,41 @@ public class AuthLN : IAuthLN
             staff.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.StaffMembers.Modificar(staff);
-            _unitOfWork.Completar();
+            await _unitOfWork.CompletarAsync();
 
             resultado.ReturnValue = true;
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         // Usuarios normales
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Email == emailNorm);
 
         if (perfil is null || string.IsNullOrEmpty(perfil.ResetCode) || perfil.ResetCodeExpiresAt is null)
         {
             resultado.lpError("Código inválido", "El código no es válido o ya fue usado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (EstaBloqueado(perfil, out var mensajeBloqueoPerfil))
         {
             resultado.lpError("Cuenta bloqueada", mensajeBloqueoPerfil);
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (DateTime.UtcNow > perfil.ResetCodeExpiresAt)
         {
             resultado.lpError("Código expirado", "El código de recuperación ha expirado. Solicita uno nuevo.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!BCrypt.Net.BCrypt.Verify(code.Trim(), perfil.ResetCode))
         {
-            RegistrarIntentoFallido(perfil);
+            await RegistrarIntentoFallidoAsync(perfil);
             resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        RestablecerIntentosFallidos(perfil);
+        await RestablecerIntentosFallidosAsync(perfil);
 
         perfil.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
         perfil.ResetCode = null;
@@ -699,31 +699,31 @@ public class AuthLN : IAuthLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    private string GenerarUsernameUnico(string nombreBase)
+    private async Task<string> GenerarUsernameUnicoAsync(string nombreBase)
     {
         var sufijo = 0;
         while (true)
         {
             var candidato = CredentialsGenerator.GenerateUsername(nombreBase, sufijo);
-            var enUso = _unitOfWork.Profiles.ObtenerEntidad(p => p.Username == candidato).ReturnValue;
+            var enUso = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Username == candidato);
             if (enUso is null)
                 return candidato;
             sufijo++;
         }
     }
 
-    private long GenerarPlayerIdUnico()
+    private async Task<long> GenerarPlayerIdUnicoAsync()
     {
         while (true)
         {
             var candidato = RandomNumberGenerator.GetInt32(10_000_000, 100_000_000);
-            var enUso = _unitOfWork.Profiles.ObtenerEntidad(p => p.PlayerId == candidato).ReturnValue;
+            var enUso = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.PlayerId == candidato);
             if (enUso is null)
                 return candidato;
         }
@@ -735,7 +735,7 @@ public class AuthLN : IAuthLN
         var emailNorm = email.Trim().ToLowerInvariant();
         var remitente = _configuration["Mail:Remitente"] ?? "no-reply@biozinroyale.com";
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Email == emailNorm);
         if (perfil is null || perfil.EmailVerified)
         {
             resultado.ReturnValue = true;
@@ -748,7 +748,7 @@ public class AuthLN : IAuthLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         try
         {
@@ -769,29 +769,29 @@ public class AuthLN : IAuthLN
         return resultado;
     }
 
-    public Task<Response<bool>> VerificarEmailAsync(string email, string code)
+    public async Task<Response<bool>> VerificarEmailAsync(string email, string code)
     {
         var resultado = new Response<bool>();
         var emailNorm = email.Trim().ToLowerInvariant();
 
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Email == emailNorm).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Email == emailNorm);
 
         if (perfil is null || string.IsNullOrEmpty(perfil.VerifyCode) || perfil.VerifyCodeExpiresAt is null)
         {
             resultado.lpError("Código inválido", "El código no es válido o ya fue usado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (DateTime.UtcNow > perfil.VerifyCodeExpiresAt)
         {
             resultado.lpError("Código expirado", "El código de verificación ha expirado. Solicita uno nuevo.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!BCrypt.Net.BCrypt.Verify(code.Trim(), perfil.VerifyCode))
         {
             resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         perfil.EmailVerified = true;
@@ -800,10 +800,10 @@ public class AuthLN : IAuthLN
         perfil.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Profiles.Modificar(perfil);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     // No hace su propio Completar(): se inserta junto con el resto de cambios del
@@ -823,7 +823,7 @@ public class AuthLN : IAuthLN
     // este helper es para los dos únicos flujos donde emitimos el JWT nosotros mismos
     // (login manual y verificación de 2FA): genera un sessionId estable (Session.Id) y
     // un jti por-token separados; devuelve (accessToken, refreshToken).
-    private (string token, string refreshToken) GenerarTokenConSesion(Profile perfil, string? userAgent, string? ipAddress)
+    private async Task<(string token, string refreshToken)> GenerarTokenConSesionAsync(Profile perfil, string? userAgent, string? ipAddress)
     {
         var sessionId = Guid.NewGuid();
         var jti = Guid.NewGuid();
@@ -843,23 +843,23 @@ public class AuthLN : IAuthLN
             RefreshTokenHash = refreshHash,
             RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(30),
         });
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         return (token, refreshRaw);
     }
 
-    public Task<Response<TTokenPar>> RefreshAsync(string refreshToken)
+    public async Task<Response<TTokenPar>> RefreshAsync(string refreshToken)
     {
         var resultado = new Response<TTokenPar>();
 
         var hash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
-        var sesion = _unitOfWork.Sessions.ObtenerEntidad(s =>
-            s.RefreshTokenHash == hash && s.IsActive).ReturnValue;
+        var sesion = await _unitOfWork.Sessions.ObtenerEntidadAsync(s =>
+            s.RefreshTokenHash == hash && s.IsActive);
 
         if (sesion is null || sesion.RefreshTokenExpiresAt is null || sesion.RefreshTokenExpiresAt < DateTime.UtcNow)
         {
             resultado.lpError("Token inválido", "El refresh token no es válido o ha expirado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         Guid userId;
@@ -868,11 +868,11 @@ public class AuthLN : IAuthLN
 
         if (sesion.ProfileId.HasValue)
         {
-            var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.Id == sesion.ProfileId.Value).ReturnValue;
+            var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.Id == sesion.ProfileId.Value);
             if (perfil is null || perfil.Status != "active")
             {
                 resultado.lpError("Cuenta inactiva", "La cuenta asociada a esta sesión no está activa.");
-                return Task.FromResult(resultado);
+                return resultado;
             }
             userId = perfil.UserId;
             email = perfil.Email;
@@ -880,11 +880,11 @@ public class AuthLN : IAuthLN
         }
         else if (sesion.StaffId.HasValue)
         {
-            var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == sesion.StaffId.Value).ReturnValue;
+            var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == sesion.StaffId.Value);
             if (staff is null || staff.Status != "active")
             {
                 resultado.lpError("Cuenta inactiva", "La cuenta asociada a esta sesión no está activa.");
-                return Task.FromResult(resultado);
+                return resultado;
             }
             userId = staff.Id;
             email = staff.Email;
@@ -893,7 +893,7 @@ public class AuthLN : IAuthLN
         else
         {
             resultado.lpError("Token inválido", "La sesión no tiene usuario asociado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         // Rotación: nuevo access token (nuevo jti, mismo session_id) + nuevo refresh token
@@ -906,9 +906,9 @@ public class AuthLN : IAuthLN
         sesion.RefreshTokenHash = newRefreshHash;
         sesion.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(30);
         _unitOfWork.Sessions.Modificar(sesion);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = new TTokenPar { Token = newAccessToken, RefreshToken = newRefreshRaw };
-        return Task.FromResult(resultado);
+        return resultado;
     }
 }

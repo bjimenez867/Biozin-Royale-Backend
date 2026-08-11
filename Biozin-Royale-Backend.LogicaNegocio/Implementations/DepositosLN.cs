@@ -39,7 +39,7 @@ public class DepositosLN : IDepositosLN
             return resultado;
         }
 
-        var wallet = _unitOfWork.Wallets.ObtenerEntidad(w => w.UserId == userId).ReturnValue;
+        var wallet = await _unitOfWork.Wallets.ObtenerEntidadAsync(w => w.UserId == userId);
         if (wallet is null)
         {
             resultado.lpError("Billetera", "No se encontró la billetera del usuario.");
@@ -76,7 +76,7 @@ public class DepositosLN : IDepositosLN
             CreatedAt       = DateTime.UtcNow,
         };
         _unitOfWork.WalletTransactions.Insertar(tx);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = new TIniciarDepositoResultado
         {
@@ -126,7 +126,7 @@ public class DepositosLN : IDepositosLN
             return resultado;
         }
 
-        var wallet = _unitOfWork.Wallets.ObtenerEntidad(w => w.UserId == userId).ReturnValue;
+        var wallet = await _unitOfWork.Wallets.ObtenerEntidadAsync(w => w.UserId == userId);
         if (wallet is null)
         {
             resultado.lpError("Billetera", "No se encontró la billetera del usuario.");
@@ -156,7 +156,7 @@ public class DepositosLN : IDepositosLN
             CreatedAt       = DateTime.UtcNow,
         };
         _unitOfWork.WalletTransactions.Insertar(tx);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = new TIniciarDepositoResultado
         {
@@ -201,11 +201,10 @@ public class DepositosLN : IDepositosLN
 
     private async Task<decimal?> ConfirmarDepositoInternoAsync(string externalId, string provider)
     {
-        var tx = _unitOfWork.WalletTransactions
-            .ObtenerEntidad(t => t.Metadata == externalId
+        var tx = await _unitOfWork.WalletTransactions
+            .ObtenerEntidadAsync(t => t.Metadata == externalId
                 && t.ReferenceType == provider
-                && t.Status == "pending")
-            .ReturnValue;
+                && t.Status == "pending");
 
         if (tx is null) return null;
 
@@ -213,14 +212,14 @@ public class DepositosLN : IDepositosLN
         tx.Status = "completed";
         _unitOfWork.WalletTransactions.Modificar(tx);
 
-        var wallet = _unitOfWork.Wallets.ObtenerEntidad(w => w.Id == tx.WalletId).ReturnValue!;
+        var wallet = (await _unitOfWork.Wallets.ObtenerEntidadAsync(w => w.Id == tx.WalletId))!;
         wallet.Balance   = Math.Round(wallet.Balance + tx.Amount, 2);
         wallet.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Wallets.Modificar(wallet);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         // Enviar comprobante por email (fire-and-forget; no bloquea la respuesta)
-        var perfil = _unitOfWork.Profiles.ObtenerEntidad(p => p.UserId == wallet.UserId).ReturnValue;
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == wallet.UserId);
         if (perfil is not null && !string.IsNullOrEmpty(perfil.Email))
         {
             var remitente = _config["Mail:Remitente"] ?? _config["Mail:Usuario"]!;

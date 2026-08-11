@@ -47,8 +47,8 @@ public class StaffLN : IStaffLN
         }
 
         var baseEmail = CredentialsGenerator.GenerateBaseEmailWithFullName(datos.Nombre);
-        var email = GenerarEmailUnico(baseEmail, rol);
-        var username = GenerarUsernameUnico(datos.Nombre);
+        var email = await GenerarEmailUnicoAsync(baseEmail, rol);
+        var username = await GenerarUsernameUnicoAsync(datos.Nombre);
         var passwordTemporal = CredentialsGenerator.GeneratePassword();
         var ahora = DateTime.UtcNow;
 
@@ -68,7 +68,7 @@ public class StaffLN : IStaffLN
         };
 
         _unitOfWork.StaffMembers.Insertar(staff);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         try
         {
@@ -90,22 +90,23 @@ public class StaffLN : IStaffLN
         return resultado;
     }
 
-    public Task<Response<IEnumerable<TPerfilResultado>>> ListarMiembrosAsync()
+    public async Task<Response<IEnumerable<TPerfilResultado>>> ListarMiembrosAsync()
     {
         var resultado = new Response<IEnumerable<TPerfilResultado>>();
 
-        var miembros = _unitOfWork.StaffMembers.Listar().ReturnValue!
-            .OrderByDescending(s => s.CreatedAt);
+        var miembros = await _unitOfWork.StaffMembers.ListarAsync();
 
-        resultado.ReturnValue = miembros.Select(s => StaffMapper.MapearComoPerfil(s, token: null));
-        return Task.FromResult(resultado);
+        resultado.ReturnValue = miembros
+            .OrderByDescending(s => s.CreatedAt)
+            .Select(s => StaffMapper.MapearComoPerfil(s, token: null));
+        return resultado;
     }
 
-    public Task<Response<TPerfilResultado>> LoginAsync(string email, string password, string? userAgent, string? ipAddress)
+    public async Task<Response<TPerfilResultado>> LoginAsync(string email, string password, string? userAgent, string? ipAddress)
     {
         var resultado = new Response<TPerfilResultado>();
 
-        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Email == email).ReturnValue;
+        var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Email == email);
         var credencialesValidas = staff is not null && BCrypt.Net.BCrypt.Verify(password, staff.PasswordHash);
 
         if (!credencialesValidas)
@@ -113,23 +114,23 @@ public class StaffLN : IStaffLN
             // Si ya está bloqueado no se sigue contando: el bloqueo tiene duración fija.
             if (staff is not null && !EstaBloqueado(staff, out _))
             {
-                RegistrarIntentoFallido(staff);
+                await RegistrarIntentoFallidoAsync(staff);
             }
             resultado.lpError("Credenciales inválidas", "El correo o la contraseña son incorrectos.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (EstaBloqueado(staff!, out var mensajeBloqueo))
         {
             resultado.lpError("Cuenta bloqueada", mensajeBloqueo);
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        RestablecerIntentosFallidos(staff!);
+        await RestablecerIntentosFallidosAsync(staff!);
 
-        var (staffToken, staffRefresh) = GenerarTokenConSesion(staff!, userAgent, ipAddress);
+        var (staffToken, staffRefresh) = await GenerarTokenConSesionAsync(staff!, userAgent, ipAddress);
         resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff!, staffToken, staffRefresh);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     // Mismo mecanismo que AuthLN, duplicado aquí porque Profile y StaffMember no
@@ -147,7 +148,7 @@ public class StaffLN : IStaffLN
         return false;
     }
 
-    private void RegistrarIntentoFallido(StaffMember staff)
+    private async Task RegistrarIntentoFallidoAsync(StaffMember staff)
     {
         staff.FailedLoginAttempts++;
         if (staff.FailedLoginAttempts >= MaxIntentosFallidos)
@@ -159,22 +160,22 @@ public class StaffLN : IStaffLN
         staff.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.StaffMembers.Modificar(staff);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
     }
 
-    private void RestablecerIntentosFallidos(StaffMember staff)
+    private async Task RestablecerIntentosFallidosAsync(StaffMember staff)
     {
         if (staff.FailedLoginAttempts == 0 && staff.LockedUntil is null) return;
 
         staff.FailedLoginAttempts = 0;
         staff.LockedUntil = null;
         _unitOfWork.StaffMembers.Modificar(staff);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
     }
 
     // Mismo patrón que AuthLN.GenerarTokenConSesion: sessionId estable (Session.Id),
     // jti por-token separado; devuelve (accessToken, refreshToken).
-    private (string token, string refreshToken) GenerarTokenConSesion(StaffMember staff, string? userAgent, string? ipAddress)
+    private async Task<(string token, string refreshToken)> GenerarTokenConSesionAsync(StaffMember staff, string? userAgent, string? ipAddress)
     {
         var sessionId = Guid.NewGuid();
         var jti = Guid.NewGuid();
@@ -195,7 +196,7 @@ public class StaffLN : IStaffLN
             RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(30),
         });
         RegistrarEvento(staff.Id, "login");
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         return (token, refreshRaw);
     }
@@ -213,27 +214,28 @@ public class StaffLN : IStaffLN
         });
     }
 
-    public Task<Response<List<TSecurityEvent>>> ObtenerHistorialSeguridadAsync(Guid staffId)
+    public async Task<Response<List<TSecurityEvent>>> ObtenerHistorialSeguridadAsync(Guid staffId)
     {
         var resultado = new Response<List<TSecurityEvent>>();
 
-        var eventos = _unitOfWork.SecurityEvents
-            .ObtenerEntidades(e => e.StaffId == staffId).ReturnValue
+        var eventos = await _unitOfWork.SecurityEvents.ObtenerEntidadesAsync(e => e.StaffId == staffId);
+
+        resultado.ReturnValue = eventos
             .OrderByDescending(e => e.CreatedAt)
             .Take(50)
             .Select(e => new TSecurityEvent { EventType = e.EventType, CreatedAt = e.CreatedAt })
             .ToList();
 
-        resultado.ReturnValue = eventos;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<List<TSession>>> ObtenerSesionesAsync(Guid staffId, Guid? currentSessionId)
+    public async Task<Response<List<TSession>>> ObtenerSesionesAsync(Guid staffId, Guid? currentSessionId)
     {
         var resultado = new Response<List<TSession>>();
 
-        var sesiones = _unitOfWork.Sessions
-            .ObtenerEntidades(s => s.StaffId == staffId && s.IsActive).ReturnValue
+        var sesiones = await _unitOfWork.Sessions.ObtenerEntidadesAsync(s => s.StaffId == staffId && s.IsActive);
+
+        resultado.ReturnValue = sesiones
             .OrderByDescending(s => s.CreatedAt)
             .Select(s => new TSession
             {
@@ -245,39 +247,37 @@ public class StaffLN : IStaffLN
             })
             .ToList();
 
-        resultado.ReturnValue = sesiones;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> CerrarSesionAsync(Guid staffId, Guid sessionId)
+    public async Task<Response<bool>> CerrarSesionAsync(Guid staffId, Guid sessionId)
     {
         var resultado = new Response<bool>();
 
-        var sesion = _unitOfWork.Sessions.ObtenerEntidad(s => s.Id == sessionId && s.StaffId == staffId).ReturnValue;
+        var sesion = await _unitOfWork.Sessions.ObtenerEntidadAsync(s => s.Id == sessionId && s.StaffId == staffId);
         if (sesion is null || !sesion.IsActive)
         {
             resultado.lpError("Sesión no encontrada", "Esa sesión ya no está activa.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         sesion.IsActive = false;
         sesion.RevokedAt = DateTime.UtcNow;
         _unitOfWork.Sessions.Modificar(sesion);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         _cache.Set(sesion.Id, true, TimeSpan.FromSeconds(30));
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> CerrarOtrasSesionesAsync(Guid staffId, Guid currentSessionId)
+    public async Task<Response<bool>> CerrarOtrasSesionesAsync(Guid staffId, Guid currentSessionId)
     {
         var resultado = new Response<bool>();
 
-        var otras = _unitOfWork.Sessions
-            .ObtenerEntidades(s => s.StaffId == staffId && s.IsActive && s.Id != currentSessionId).ReturnValue
-            .ToList();
+        var otras = await _unitOfWork.Sessions
+            .ObtenerEntidadesAsync(s => s.StaffId == staffId && s.IsActive && s.Id != currentSessionId);
 
         foreach (var sesion in otras)
         {
@@ -287,36 +287,36 @@ public class StaffLN : IStaffLN
             _cache.Set(sesion.Id, true, TimeSpan.FromSeconds(30));
         }
 
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TPerfilResultado>> ObtenerMeAsync(Guid staffId)
+    public async Task<Response<TPerfilResultado>> ObtenerMeAsync(Guid staffId)
     {
         var resultado = new Response<TPerfilResultado>();
 
-        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == staffId).ReturnValue;
+        var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == staffId);
         if (staff is null)
         {
             resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token: null);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TPerfilResultado>> ActualizarMeAsync(Guid staffId, TActualizarStaffMember datos)
+    public async Task<Response<TPerfilResultado>> ActualizarMeAsync(Guid staffId, TActualizarStaffMember datos)
     {
         var resultado = new Response<TPerfilResultado>();
 
-        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == staffId).ReturnValue;
+        var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == staffId);
         if (staff is null)
         {
             resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!string.IsNullOrWhiteSpace(datos.DisplayName))
@@ -326,43 +326,43 @@ public class StaffLN : IStaffLN
         staff.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.StaffMembers.Modificar(staff);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token: null);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TPerfilResultado>> ObtenerMiembroAsync(Guid id)
+    public async Task<Response<TPerfilResultado>> ObtenerMiembroAsync(Guid id)
     {
         var resultado = new Response<TPerfilResultado>();
 
-        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == id).ReturnValue;
+        var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == id);
         if (staff is null)
         {
             resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         string? createdByName = null;
         if (staff.CreatedBy.HasValue)
         {
-            var creator = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == staff.CreatedBy.Value).ReturnValue;
+            var creator = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == staff.CreatedBy.Value);
             createdByName = creator?.DisplayName ?? creator?.Username;
         }
 
         resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token: null, createdByName: createdByName);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TPerfilResultado>> ActualizarMiembroAsync(Guid id, TActualizarStaffMember datos)
+    public async Task<Response<TPerfilResultado>> ActualizarMiembroAsync(Guid id, TActualizarStaffMember datos)
     {
         var resultado = new Response<TPerfilResultado>();
 
-        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == id).ReturnValue;
+        var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == id);
         if (staff is null)
         {
             resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!string.IsNullOrWhiteSpace(datos.DisplayName))
@@ -372,13 +372,13 @@ public class StaffLN : IStaffLN
         staff.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.StaffMembers.Modificar(staff);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token: null);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<TPerfilResultado>> CambiarStatusMiembroAsync(Guid id, string nuevoStatus)
+    public async Task<Response<TPerfilResultado>> CambiarStatusMiembroAsync(Guid id, string nuevoStatus)
     {
         var resultado = new Response<TPerfilResultado>();
 
@@ -386,65 +386,65 @@ public class StaffLN : IStaffLN
         if (statusNorm != "active" && statusNorm != "inactive")
         {
             resultado.lpError("Estado inválido", "El estado debe ser 'active' o 'inactive'.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == id).ReturnValue;
+        var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == id);
         if (staff is null)
         {
             resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         staff.Status = statusNorm;
         staff.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.StaffMembers.Modificar(staff);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = StaffMapper.MapearComoPerfil(staff, token: null);
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> EliminarMiembroAsync(Guid id)
+    public async Task<Response<bool>> EliminarMiembroAsync(Guid id)
     {
         var resultado = new Response<bool>();
 
-        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == id).ReturnValue;
+        var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == id);
         if (staff is null)
         {
             resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         _unitOfWork.StaffMembers.Eliminar(staff);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<bool>> CambiarPasswordAsync(Guid staffId, string oldPassword, string newPassword)
+    public async Task<Response<bool>> CambiarPasswordAsync(Guid staffId, string oldPassword, string newPassword)
     {
         var resultado = new Response<bool>();
 
         if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
         {
             resultado.lpError("Contraseña inválida", "La nueva contraseña debe tener al menos 8 caracteres.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == staffId).ReturnValue;
+        var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == staffId);
         if (staff is null)
         {
             resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         if (!BCrypt.Net.BCrypt.Verify(oldPassword, staff.PasswordHash))
         {
             resultado.lpError("Contraseña incorrecta", "La contraseña actual es incorrecta.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
         staff.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
@@ -453,17 +453,17 @@ public class StaffLN : IStaffLN
 
         _unitOfWork.StaffMembers.Modificar(staff);
         RegistrarEvento(staff.Id, "password_change");
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         resultado.ReturnValue = true;
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     public async Task<Response<bool>> RestablecerPasswordStaffAsync(Guid id)
     {
         var resultado = new Response<bool>();
 
-        var staff = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == id).ReturnValue;
+        var staff = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == id);
         if (staff is null)
         {
             resultado.lpError("No encontrado", "Miembro del equipo no encontrado.");
@@ -476,7 +476,7 @@ public class StaffLN : IStaffLN
         staff.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.StaffMembers.Modificar(staff);
-        _unitOfWork.Completar();
+        await _unitOfWork.CompletarAsync();
 
         var rol = CredentialsGenerator.DetectRole(staff.Email) == "admin" ? "Administrador" : "Soporte";
         var remitente = _configuration["Mail:Remitente"] ?? "no-reply@biozinroyale.com";
@@ -500,7 +500,7 @@ public class StaffLN : IStaffLN
         return resultado;
     }
 
-    private string GenerarEmailUnico(string baseEmail, string rol)
+    private async Task<string> GenerarEmailUnicoAsync(string baseEmail, string rol)
     {
         var sufijo = 0;
         while (true)
@@ -509,20 +509,20 @@ public class StaffLN : IStaffLN
                 ? CredentialsGenerator.BuildEmailAdmin(baseEmail, sufijo)
                 : CredentialsGenerator.BuildSupportEmail(baseEmail, sufijo);
 
-            var enUso = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Email == candidato).ReturnValue;
+            var enUso = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Email == candidato);
             if (enUso is null)
                 return candidato;
             sufijo++;
         }
     }
 
-    private string GenerarUsernameUnico(string nombreBase)
+    private async Task<string> GenerarUsernameUnicoAsync(string nombreBase)
     {
         var sufijo = 0;
         while (true)
         {
             var candidato = CredentialsGenerator.GenerateUsername(nombreBase, sufijo);
-            var enUso = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Username == candidato).ReturnValue;
+            var enUso = await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Username == candidato);
             if (enUso is null)
                 return candidato;
             sufijo++;

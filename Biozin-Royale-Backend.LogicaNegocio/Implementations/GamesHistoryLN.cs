@@ -14,59 +14,59 @@ public class GamesHistoryLN : IGamesHistoryLN
         _unitOfWork = unitOfWork;
     }
 
-    public Task<Response<IEnumerable<TGamesHistory>>> ObtenerHistorialAsync(Guid userId)
+    public async Task<Response<IEnumerable<TGamesHistory>>> ObtenerHistorialAsync(Guid userId)
     {
         var resultado = new Response<IEnumerable<TGamesHistory>>();
 
         // Igual que user_statistics: solo apuestas ya resueltas, nunca las pendientes.
-        var apuestas = _unitOfWork.GamesHistory
-            .ObtenerEntidades(b => b.UserId == userId && b.Status == "settled")
-            .ReturnValue!
-            .OrderByDescending(b => b.CreatedAt);
+        var apuestas = await _unitOfWork.GamesHistory
+            .ObtenerEntidadesAsync(b => b.UserId == userId && b.Status == "settled");
 
-        resultado.ReturnValue = apuestas.Select(b => new TGamesHistory
-        {
-            Id = b.Id,
-            GameType = b.GameType,
-            Amount = b.Amount,
-            Payout = b.Payout,
-            Profit = b.Profit,
-            Result = b.Result,
-            CreatedAt = b.CreatedAt
-        });
+        resultado.ReturnValue = apuestas
+            .OrderByDescending(b => b.CreatedAt)
+            .Select(b => new TGamesHistory
+            {
+                Id = b.Id,
+                GameType = b.GameType,
+                Amount = b.Amount,
+                Payout = b.Payout,
+                Profit = b.Profit,
+                Result = b.Result,
+                CreatedAt = b.CreatedAt
+            });
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
-    public Task<Response<IEnumerable<TGamesHistory>>> ObtenerHistorialDeUsuarioAsync(Guid adminId, Guid targetUserId)
+    public async Task<Response<IEnumerable<TGamesHistory>>> ObtenerHistorialDeUsuarioAsync(Guid adminId, Guid targetUserId)
     {
         var resultado = new Response<IEnumerable<TGamesHistory>>();
 
-        var staffEmail = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == adminId).ReturnValue?.Email;
+        var staffEmail = (await _unitOfWork.StaffMembers.ObtenerEntidadAsync(s => s.Id == adminId))?.Email;
         var esAdmin = staffEmail is not null && CredentialsGenerator.DetectRole(staffEmail) == "admin";
 
         if (!esAdmin)
         {
             resultado.lpError("No autorizado.", "Solo los administradores pueden ver el historial de otros usuarios.");
-            return Task.FromResult(resultado);
+            return resultado;
         }
 
-        var apuestas = _unitOfWork.GamesHistory
-            .ObtenerEntidades(b => b.UserId == targetUserId && b.Status == "settled")
-            .ReturnValue!
-            .OrderByDescending(b => b.CreatedAt);
+        var apuestas = await _unitOfWork.GamesHistory
+            .ObtenerEntidadesAsync(b => b.UserId == targetUserId && b.Status == "settled");
 
-        resultado.ReturnValue = apuestas.Select(b => new TGamesHistory
-        {
-            Id = b.Id,
-            GameType = b.GameType,
-            Amount = b.Amount,
-            Payout = b.Payout,
-            Profit = b.Profit,
-            Result = b.Result,
-            CreatedAt = b.CreatedAt
-        });
+        resultado.ReturnValue = apuestas
+            .OrderByDescending(b => b.CreatedAt)
+            .Select(b => new TGamesHistory
+            {
+                Id = b.Id,
+                GameType = b.GameType,
+                Amount = b.Amount,
+                Payout = b.Payout,
+                Profit = b.Profit,
+                Result = b.Result,
+                CreatedAt = b.CreatedAt
+            });
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 }

@@ -37,6 +37,15 @@ public class RepositoryAD<T> : IRepositoryAD<T> where T : class
         return resultado;
     }
 
+    public async Task<T?> ObtenerEntidadAsync(Expression<Func<T, bool>> filtro)
+        => await _dbSet.AsNoTracking().FirstOrDefaultAsync(filtro);
+
+    public async Task<List<T>> ObtenerEntidadesAsync(Expression<Func<T, bool>> filtro)
+        => await _dbSet.AsNoTracking().Where(filtro).ToListAsync();
+
+    public async Task<List<T>> ListarAsync()
+        => await _dbSet.AsNoTracking().ToListAsync();
+
     public void Insertar(T entidad)
     {
         _dbSet.Add(entidad);

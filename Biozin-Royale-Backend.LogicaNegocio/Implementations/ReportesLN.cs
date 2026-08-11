@@ -21,27 +21,24 @@ public class ReportesLN : IReportesLN
 
     // ── KPI del día ───────────────────────────────────────────────────────────
 
-    public Task<Response<TReportesKpiResultado>> GetKpiAsync()
+    public async Task<Response<TReportesKpiResultado>> GetKpiAsync()
     {
         var resultado = new Response<TReportesKpiResultado>();
         var hoy    = DateTime.UtcNow.Date;
         var manana = hoy.AddDays(1);
 
-        var activeUsers = _unitOfWork.Profiles
-            .ObtenerEntidades(p => !p.IsGuest && p.Status == "active")
-            .ReturnValue!.Count();
+        var activeUsers = (await _unitOfWork.Profiles
+            .ObtenerEntidadesAsync(p => !p.IsGuest && p.Status == "active")).Count;
 
-        var depositos = _unitOfWork.WalletTransactions
-            .ObtenerEntidades(t => t.TransactionType == "deposit"
+        var depositos = await _unitOfWork.WalletTransactions
+            .ObtenerEntidadesAsync(t => t.TransactionType == "deposit"
                 && t.Status == "completed"
-                && t.CreatedAt >= hoy && t.CreatedAt < manana)
-            .ReturnValue!.ToList();
+                && t.CreatedAt >= hoy && t.CreatedAt < manana);
 
-        var retiros = _unitOfWork.WalletTransactions
-            .ObtenerEntidades(t => t.TransactionType == "withdrawal"
+        var retiros = await _unitOfWork.WalletTransactions
+            .ObtenerEntidadesAsync(t => t.TransactionType == "withdrawal"
                 && t.Status == "completed"
-                && t.CreatedAt >= hoy && t.CreatedAt < manana)
-            .ReturnValue!.ToList();
+                && t.CreatedAt >= hoy && t.CreatedAt < manana);
 
         var depositTotal    = depositos.Sum(t => t.Amount);
         var withdrawalTotal = retiros.Sum(t => t.Amount);
@@ -54,16 +51,16 @@ public class ReportesLN : IReportesLN
             NetProfit       = depositTotal - withdrawalTotal,
         };
 
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     // ── PDF ───────────────────────────────────────────────────────────────────
 
-    public Task<Response<byte[]>> GenerarPdfAsync(string period)
+    public async Task<Response<byte[]>> GenerarPdfAsync(string period)
     {
         var resultado = new Response<byte[]>();
         var (from, to, label, titulo) = GetRange(period);
-        var filas = GetFilas(from, to);
+        var filas = await GetFilasAsync(from, to);
 
         var depositos  = filas.Where(f => f.TransactionType == "deposit"   && f.Status == "completed").ToList();
         var retiros    = filas.Where(f => f.TransactionType == "withdrawal" && f.Status == "completed").ToList();
@@ -251,16 +248,16 @@ public class ReportesLN : IReportesLN
         });
 
         resultado.ReturnValue = pdf.GeneratePdf();
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     // ── Excel ─────────────────────────────────────────────────────────────────
 
-    public Task<Response<byte[]>> GenerarExcelAsync(string period)
+    public async Task<Response<byte[]>> GenerarExcelAsync(string period)
     {
         var resultado = new Response<byte[]>();
         var (from, to, label, titulo) = GetRange(period);
-        var filas = GetFilas(from, to);
+        var filas = await GetFilasAsync(from, to);
 
         var depositos  = filas.Where(f => f.TransactionType == "deposit"   && f.Status == "completed").ToList();
         var retiros    = filas.Where(f => f.TransactionType == "withdrawal" && f.Status == "completed").ToList();
@@ -538,7 +535,7 @@ public class ReportesLN : IReportesLN
         using var stream = new MemoryStream();
         wb.SaveAs(stream);
         resultado.ReturnValue = stream.ToArray();
-        return Task.FromResult(resultado);
+        return resultado;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -567,26 +564,23 @@ public class ReportesLN : IReportesLN
         };
     }
 
-    private List<TFinanzasTransaccionResultado> GetFilas(DateTime from, DateTime to)
+    private async Task<List<TFinanzasTransaccionResultado>> GetFilasAsync(DateTime from, DateTime to)
     {
-        var txs = _unitOfWork.WalletTransactions
-            .ObtenerEntidades(t =>
+        var txs = (await _unitOfWork.WalletTransactions
+            .ObtenerEntidadesAsync(t =>
                 (t.TransactionType == "deposit" || t.TransactionType == "withdrawal")
-                && t.CreatedAt >= from && t.CreatedAt < to)
-            .ReturnValue!
+                && t.CreatedAt >= from && t.CreatedAt < to))
             .OrderByDescending(t => t.CreatedAt)
             .ToList();
 
         var walletIds  = txs.Select(t => t.WalletId).Distinct().ToList();
-        var walletMap  = _unitOfWork.Wallets
-            .ObtenerEntidades(w => walletIds.Contains(w.Id))
-            .ReturnValue!
+        var walletMap  = (await _unitOfWork.Wallets
+            .ObtenerEntidadesAsync(w => walletIds.Contains(w.Id)))
             .ToDictionary(w => w.Id, w => w.UserId);
 
         var userIds    = walletMap.Values.Distinct().ToList();
-        var profileMap = _unitOfWork.Profiles
-            .ObtenerEntidades(p => userIds.Contains(p.UserId))
-            .ReturnValue!
+        var profileMap = (await _unitOfWork.Profiles
+            .ObtenerEntidadesAsync(p => userIds.Contains(p.UserId)))
             .ToDictionary(p => p.UserId, p => p);
 
         return txs.Select(t =>
