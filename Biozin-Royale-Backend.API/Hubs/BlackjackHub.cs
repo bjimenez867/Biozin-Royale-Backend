@@ -69,6 +69,31 @@ public class BlackjackHub : Hub
         await _manager.LeaveAsync(Context.ConnectionId);
     }
 
+    // ── Mesas privadas ────────────────────────────────────────────────────────
+
+    public async Task<object> CreatePrivateRoom(decimal min, decimal max, bool fillWithBots)
+    {
+        var (roomId, snapshot) = await _manager.CreatePrivateRoomAsync(
+            UserId, Context.ConnectionId, min, max, fillWithBots);
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"bj:{roomId}");
+        CurrentRoom = roomId;
+        return new { roomId, snapshot };
+    }
+
+    public async Task<object> JoinByCode(string code)
+    {
+        var (roomId, snapshot) = await _manager.JoinByCodeAsync(code, UserId, Context.ConnectionId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"bj:{roomId}");
+        CurrentRoom = roomId;
+        return new { roomId, snapshot };
+    }
+
+    public Task StartGame()
+    {
+        if (CurrentRoom is not int roomId) throw new HubException("No estás en una mesa.");
+        return _manager.StartPrivateGameAsync(roomId, UserId);
+    }
+
     public Task PlaceBet(decimal amount)
     {
         if (CurrentRoom is not int roomId) throw new HubException("No estás en una mesa.");

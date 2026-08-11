@@ -39,12 +39,21 @@ public sealed class BjRoom
     public required decimal Min { get; init; }
     public required decimal Max { get; init; }
 
+    // ── Mesa privada ──
+    public bool IsPrivate { get; init; }
+    /// Código de invitación (solo mesas privadas)
+    public string? InviteCode { get; init; }
+    /// Anfitrión: único que puede iniciar la partida desde el lobby privado
+    public Guid? OwnerUserId { get; set; }
+    /// false = jugar solo entre amigos, sin completar asientos con bots
+    public bool FillWithBots { get; set; } = true;
+
     public readonly SemaphoreSlim Sem = new(1, 1);
     public readonly BjShoe Shoe = new();
     public readonly List<BjRoomPlayer> Players = [];
     public readonly List<BjBot> Bots = [];
 
-    public string State = "waiting"; // waiting | starting | betting | dealing | acting | dealer | settled
+    public string State = "waiting"; // waiting | lobby | starting | betting | dealing | acting | dealer | settled
     public DateTime? PhaseEndsUtc;
     public Guid RoundId;
     public BjRound? Round;
@@ -61,10 +70,12 @@ public sealed class BlackjackRoomManager
 {
     private const int MaxSeats = 4;
     private const int StartingSeconds = 30;   // espera en sala antes de completar con bots
+    private const int PrivateStartSeconds = 3; // cuenta corta al iniciar una mesa privada
     private const int BettingSeconds = 15;
     private const int TurnSeconds = 20;
     private const int IntermissionMs = 4500;
     private const int MaxMissedRounds = 3;    // rondas sin apostar antes de expulsar
+    private const int MaxPrivateRooms = 50;
 
     private static readonly (string Name, string Avatar)[] BotProfiles =
     [
@@ -74,6 +85,9 @@ public sealed class BlackjackRoomManager
     ];
 
     private readonly List<BjRoom> _rooms;
+    private readonly List<BjRoom> _privateRooms = [];
+    private readonly object _privLock = new();
+    private int _nextPrivateId = 100;
     private readonly IHubContext<BlackjackHub> _hub;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<BlackjackRoomManager> _logger;
@@ -121,9 +135,123 @@ public sealed class BlackjackRoomManager
 
     public async Task<object> JoinAsync(int roomId, Guid userId, string connectionId)
     {
-        var room = _rooms.FirstOrDefault(r => r.Id == roomId)
-            ?? throw new HubException("La mesa no existe.");
+        var room = GetRoom(roomId);
 
+        // A una mesa privada solo se entra con código; por roomId únicamente
+        // quien ya es miembro (reconexión / navegación tras unirse)
+        if (room.IsPrivate)
+        {
+            await room.Sem.WaitAsync();
+            try
+            {
+                if (room.Players.All(p => p.UserId != userId))
+                    throw new HubException("Esta mesa es privada: únete con el código de invitación.");
+            }
+            finally { room.Sem.Release(); }
+        }
+
+        return await JoinInternalAsync(room, userId, connectionId);
+    }
+
+    // ── Mesas privadas ────────────────────────────────────────────────────────
+
+    public async Task<(int RoomId, object Snapshot)> CreatePrivateRoomAsync(
+        Guid userId, string connectionId, decimal min, decimal max, bool fillWithBots)
+    {
+        decimal[] minsValidos = [10, 25, 50, 100, 250];
+        if (!minsValidos.Contains(min) || max != min * 100)
+            throw new HubException("Rango de apuestas inválido.");
+
+        BjRoom room;
+        lock (_privLock)
+        {
+            // Recicla mesas vacías y limita a una activa por anfitrión
+            _privateRooms.RemoveAll(r => r.Players.Count == 0 && !r.LoopRunning);
+            if (_privateRooms.Any(r => r.OwnerUserId == userId))
+                throw new HubException("Ya tienes una mesa privada activa.");
+            if (_privateRooms.Count >= MaxPrivateRooms)
+                throw new HubException("No hay espacio para más mesas privadas en este momento.");
+
+            room = new BjRoom
+            {
+                Id = _nextPrivateId++,
+                Min = min,
+                Max = max,
+                IsPrivate = true,
+                InviteCode = GenerarCodigo(),
+                OwnerUserId = userId,
+                FillWithBots = fillWithBots,
+                State = "lobby",
+            };
+            _privateRooms.Add(room);
+        }
+
+        var snap = await JoinInternalAsync(room, userId, connectionId);
+        return (room.Id, snap);
+    }
+
+    public async Task<(int RoomId, object Snapshot)> JoinByCodeAsync(string code, Guid userId, string connectionId)
+    {
+        var norm = (code ?? string.Empty).Trim().ToUpperInvariant();
+        BjRoom? room;
+        lock (_privLock)
+            room = _privateRooms.FirstOrDefault(r => r.InviteCode == norm);
+        if (room is null)
+            throw new HubException("Código inválido o la mesa ya no existe.");
+
+        var snap = await JoinInternalAsync(room, userId, connectionId);
+        return (room.Id, snap);
+    }
+
+    public async Task StartPrivateGameAsync(int roomId, Guid userId)
+    {
+        var room = GetRoom(roomId);
+        await room.Sem.WaitAsync();
+        try
+        {
+            if (!room.IsPrivate || room.State != "lobby")
+                throw new HubException("La partida ya está en curso.");
+            if (room.OwnerUserId != userId)
+                throw new HubException("Solo el anfitrión puede iniciar la partida.");
+            if (!room.Players.Any(p => p.ConnectionId != null))
+                throw new HubException("No hay jugadores en la mesa.");
+            if (!room.FillWithBots && room.Players.Count(p => p.ConnectionId != null) < 2)
+                throw new HubException("Sin bots se necesitan al menos 2 jugadores.");
+
+            room.LoopRunning = true;
+            room.State = "starting";
+            room.PhaseEndsUtc = DateTime.UtcNow.AddSeconds(PrivateStartSeconds);
+            _ = Task.Run(() => RunLoopAsync(room));
+            await _hub.Clients.Group(room.Group).SendAsync("state", BuildSnapshot(room));
+        }
+        finally { room.Sem.Release(); }
+    }
+
+    private string GenerarCodigo()
+    {
+        // Sin caracteres ambiguos (0/O, 1/I/L)
+        const string chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+        while (true)
+        {
+            var code = new string(Enumerable.Range(0, 6)
+                .Select(_ => chars[System.Security.Cryptography.RandomNumberGenerator.GetInt32(chars.Length)])
+                .ToArray());
+            if (_privateRooms.All(r => r.InviteCode != code)) return code;
+        }
+    }
+
+    private void RemoverSalaPrivada(BjRoom room)
+    {
+        lock (_privLock) _privateRooms.Remove(room);
+    }
+
+    private List<BjRoom> TodasLasSalas()
+    {
+        lock (_privLock) return [.. _rooms, .. _privateRooms];
+    }
+
+    private async Task<object> JoinInternalAsync(BjRoom room, Guid userId, string connectionId)
+    {
         // Perfil ANTES del lock (round-trip a DB)
         string name;
         string? avatar;
@@ -165,7 +293,8 @@ public sealed class BlackjackRoomManager
             // al abrirse las apuestas.
             AsignarSilla(room, player);
 
-            if (!room.LoopRunning)
+            // Las mesas privadas no arrancan solas: esperan al anfitrión en "lobby"
+            if (!room.LoopRunning && !room.IsPrivate)
             {
                 room.LoopRunning = true;
                 // El estado "starting" y su deadline se fijan AQUÍ (bajo el lock)
@@ -186,8 +315,9 @@ public sealed class BlackjackRoomManager
 
     public async Task LeaveAsync(string connectionId)
     {
-        foreach (var room in _rooms)
+        foreach (var room in TodasLasSalas())
         {
+            var disolver = false;
             await room.Sem.WaitAsync();
             try
             {
@@ -202,10 +332,29 @@ public sealed class BlackjackRoomManager
                     room.Players.Remove(player);
                 // Si era su turno, que no bloquee: el timeout del loop lo planta solo.
 
-                await _hub.Clients.Group(room.Group).SendAsync("state", BuildSnapshot(room));
-                _ = BroadcastLobbyAsync();
+                if (room.IsPrivate && room.State == "lobby" && player.UserId == room.OwnerUserId)
+                {
+                    // El anfitrión cerró la mesa antes de iniciar: se disuelve
+                    disolver = true;
+                    foreach (var otro in room.Players.Where(p => p.ConnectionId != null))
+                        _ = _hub.Clients.Client(otro.ConnectionId!)
+                            .SendAsync("kicked", "El anfitrión cerró la mesa.");
+                    room.Players.Clear();
+                }
+                else if (room.IsPrivate && room.Players.Count == 0 && !room.LoopRunning)
+                {
+                    disolver = true;
+                }
+
+                if (!disolver)
+                {
+                    await _hub.Clients.Group(room.Group).SendAsync("state", BuildSnapshot(room));
+                    _ = BroadcastLobbyAsync();
+                }
             }
             finally { room.Sem.Release(); }
+
+            if (disolver) RemoverSalaPrivada(room);
         }
     }
 
@@ -306,7 +455,8 @@ public sealed class BlackjackRoomManager
                         room.PhaseEndsUtc = null;
                         await _hub.Clients.Group(room.Group).SendAsync("state", BuildSnapshot(room));
                         _ = BroadcastLobbyAsync();
-                        return; // el loop se relanza cuando entre alguien
+                        if (room.IsPrivate) RemoverSalaPrivada(room); // vacía = se elimina
+                        return; // (pública) el loop se relanza cuando entre alguien
                     }
 
                     room.State = "starting";
@@ -361,13 +511,16 @@ public sealed class BlackjackRoomManager
                 if (free >= 0) { p.Chair = free; taken.Add(free); }
             }
 
-            // Bots ocupan las sillas restantes
+            // Bots ocupan las sillas restantes (en mesas privadas es opcional)
             room.Bots.Clear();
-            var botIdx = 0;
-            foreach (var chair in Enumerable.Range(0, MaxSeats).Where(i => !taken.Contains(i)))
+            if (room.FillWithBots)
             {
-                var profile = BotProfiles[botIdx++ % BotProfiles.Length];
-                room.Bots.Add(new BjBot { Chair = chair, Name = profile.Name, Avatar = profile.Avatar });
+                var botIdx = 0;
+                foreach (var chair in Enumerable.Range(0, MaxSeats).Where(i => !taken.Contains(i)))
+                {
+                    var profile = BotProfiles[botIdx++ % BotProfiles.Length];
+                    room.Bots.Add(new BjBot { Chair = chair, Name = profile.Name, Avatar = profile.Avatar });
+                }
             }
 
             room.State = "betting";
@@ -688,6 +841,9 @@ public sealed class BlackjackRoomManager
             min = room.Min,
             max = room.Max,
             turnChair = room.TurnChair,
+            isPrivate = room.IsPrivate,
+            inviteCode = room.IsPrivate ? room.InviteCode : null,
+            ownerUserId = room.IsPrivate ? room.OwnerUserId : null,
             dealer = new { cards = dealerCards, hole, total = dealerTotal },
             chairs,
             spectators = room.Players
@@ -706,15 +862,20 @@ public sealed class BlackjackRoomManager
         result = h.Result == BjHandResult.Pending ? null : h.Result.ToString().ToLowerInvariant(),
     }).ToList();
 
-    private BjRoom GetRoom(int roomId) =>
-        _rooms.FirstOrDefault(r => r.Id == roomId) ?? throw new HubException("La mesa no existe.");
+    private BjRoom GetRoom(int roomId)
+    {
+        var room = _rooms.FirstOrDefault(r => r.Id == roomId);
+        if (room is null)
+            lock (_privLock) room = _privateRooms.FirstOrDefault(r => r.Id == roomId);
+        return room ?? throw new HubException("La mesa no existe.");
+    }
 
     /// Silla libre más baja, solo cuando no hay ronda repartida (waiting/starting/
     /// betting). En betting puede desplazar a un bot que aún no recibió cartas.
     private static void AsignarSilla(BjRoom room, BjRoomPlayer player)
     {
         if (player.Chair is not null) return;
-        if (room.State is not ("waiting" or "starting" or "betting")) return;
+        if (room.State is not ("waiting" or "lobby" or "starting" or "betting")) return;
 
         var taken = room.Players
             .Where(p => p != player && p.Chair != null)
