@@ -381,6 +381,38 @@ public class AuthLN : IAuthLN
                 resultado.lpError("Cuenta bloqueada", bloqueoActivo.Message);
                 return resultado;
             }
+
+            // Mismo gate que LoginManualAsync (línea ~266): si el perfil ya existía y
+            // tiene 2FA activo, no se completa el login OAuth todavía. Nunca aplica a
+            // esAnonimo (invitados no tienen 2FA) ni al perfil recién creado más abajo.
+            if (!esAnonimo && perfil.TwoFactorEnabled)
+            {
+                // Mitigación: el backend no emite JWT propio para OAuth — el frontend usa
+                // el access_token crudo de Supabase como Bearer. Se deja marcada como
+                // IsActive=false la fila Session para este session_id ANTES de completar
+                // el 2FA, reutilizando el chequeo que ya existe en OnTokenValidated
+                // (Program.cs): si ese token de Supabase se reutiliza en cualquier otro
+                // endpoint [Authorize] saltándose /sync, queda bloqueado por "Sesión
+                // cerrada." en vez de pasar sin ninguna barrera.
+                if (sessionId.HasValue &&
+                    await _unitOfWork.Sessions.ObtenerEntidadAsync(s => s.Id == sessionId.Value) is null)
+                {
+                    _unitOfWork.Sessions.Insertar(new Session
+                    {
+                        Id = sessionId.Value,
+                        ProfileId = perfil.Id,
+                        DeviceLabel = DeviceParser.AnalizarUserAgent(userAgent),
+                        IpAddress = ipAddress,
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = false,
+                    });
+                    await _unitOfWork.CompletarAsync();
+                }
+
+                await GenerarYEnviarCodigo2FAAsync(perfil);
+                resultado.lpError("2FA requerido", "Te enviamos un código de verificación a tu correo.");
+                return resultado;
+            }
         }
 
         if (perfil is null)

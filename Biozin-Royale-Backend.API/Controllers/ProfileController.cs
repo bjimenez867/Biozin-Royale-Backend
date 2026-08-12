@@ -103,7 +103,17 @@ public class ProfileController : ControllerBase
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
 
-        var resultado = await _profileLN.CambiarEstadoTwoFactorAsync(userId, datos.Password, datos.Enabled);
+        var resultado = await _profileLN.CambiarEstadoTwoFactorAsync(userId, datos.Password, datos.Enabled, datos.Code);
+        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+    }
+
+    [EnableRateLimiting("twofa-code")]
+    [HttpPost("2fa/desactivar/codigo")]
+    public async Task<IActionResult> EnviarCodigoDesactivarTwoFactor()
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var resultado = await _profileLN.EnviarCodigoDesactivarTwoFactorAsync(userId);
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
