@@ -33,7 +33,19 @@ public class TicketsController : ControllerBase
         if (role == "admin" || role == "soporte") return Forbid();
 
         var resultado = await _ticketsLN.CrearTicketAsync(datos, userId);
-        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+        if (resultado.blnError) return BadRequest(resultado);
+
+        // Tiempo real: el staff se entera del ticket nuevo sin tener que sondear.
+        await _chatHub.Clients.Group(ChatHub.StaffNotificationsGroup).SendAsync("nuevoTicket", new TNuevoTicketNotif
+        {
+            Id = resultado.ReturnValue!.Id,
+            TicketNumber = resultado.ReturnValue.TicketNumber,
+            Subject = resultado.ReturnValue.Subject,
+            UserDisplayName = resultado.ReturnValue.UserDisplayName,
+            CreatedAt = resultado.ReturnValue.CreatedAt,
+        });
+
+        return Ok(resultado);
     }
 
     [HttpGet]
@@ -89,6 +101,27 @@ public class TicketsController : ControllerBase
         // deduplica por id, ya que también está en el grupo)
         await _chatHub.Clients.Group(ChatHub.TicketGroup(id))
             .SendAsync("ticketMensaje", new { ticketId = id, mensaje = resultado.ReturnValue });
+
+        // Notificación app-wide para quien no tenga el ticket abierto: al staff si
+        // respondió el usuario, al dueño del ticket si respondió el staff.
+        var info = await _ticketsLN.ObtenerNotifInfoAsync(id);
+        if (!info.blnError && info.ReturnValue != null)
+        {
+            var esUsuario = role == "user" || role == "authenticated";
+            var grupo = esUsuario
+                ? ChatHub.StaffNotificationsGroup
+                : ChatHub.UserNotificationsGroup(info.ReturnValue.UserId);
+
+            await _chatHub.Clients.Group(grupo).SendAsync("nuevoMensaje", new TNuevoMensajeNotif
+            {
+                TicketId = id,
+                TicketNumber = info.ReturnValue.TicketNumber,
+                Subject = info.ReturnValue.Subject,
+                SenderName = resultado.ReturnValue!.SenderName,
+                Body = resultado.ReturnValue.Body,
+                CreatedAt = resultado.ReturnValue.CreatedAt,
+            });
+        }
 
         return Ok(resultado);
     }
@@ -169,34 +202,6 @@ public class TicketsController : ControllerBase
         if (!IsStaff()) return Forbid();
 
         var resultado = await _ticketsLN.ListarAgentesAsync();
-        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
-    }
-
-    // ── Notificaciones ───────────────────────────────────────────────────────
-
-    [HttpGet("notifications")]
-    public async Task<IActionResult> ObtenerNotificaciones([FromQuery] DateTime? since)
-    {
-        if (!TryGetUserId(out var userId)) return Unauthorized();
-
-        // El binder de query string puede parsear el sufijo "Z" del ISO string del cliente
-        // convirtiéndolo a hora local del servidor (Kind=Local); si solo re-etiquetáramos
-        // el Kind sin convertir, la ventana de "nuevo" quedaría corrida por el offset de
-        // zona horaria del servidor. Se normaliza explícito a UTC en cada caso.
-        var sinceUtc = since switch
-        {
-            null => DateTime.UtcNow,
-            { Kind: DateTimeKind.Utc } dt => dt,
-            { Kind: DateTimeKind.Local } dt => dt.ToUniversalTime(),
-            { } dt => DateTime.SpecifyKind(dt, DateTimeKind.Utc),
-        };
-
-        // Staff ve tickets/mensajes nuevos de todos los usuarios; un usuario normal
-        // solo ve respuestas nuevas de soporte en sus propios tickets.
-        var resultado = IsStaff()
-            ? await _ticketsLN.ObtenerNotificacionesAsync(sinceUtc)
-            : await _ticketsLN.ObtenerNotificacionesUsuarioAsync(userId, sinceUtc);
-
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 

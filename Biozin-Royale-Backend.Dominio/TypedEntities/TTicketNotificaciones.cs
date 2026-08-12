@@ -18,10 +18,3 @@ public class TNuevoMensajeNotif
     public string Body { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 }
-
-public class TTicketNotificaciones
-{
-    public List<TNuevoTicketNotif> NuevosTickets { get; set; } = new();
-    public List<TNuevoMensajeNotif> NuevosMensajes { get; set; } = new();
-    public DateTime ServerTime { get; set; }
-}

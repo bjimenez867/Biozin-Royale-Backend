@@ -4,9 +4,10 @@ using Biozin_Royale_Backend.Dominio.InterfacesAD;
 
 namespace Biozin_Royale_Backend.API.Hubs;
 
-/// Canal en tiempo real de los chats de soporte: tickets (usuario↔soporte) y
-/// solicitudes internas (soporte↔admin). Este hub solo gestiona la membresía a
-/// los grupos — los eventos los emiten los controllers REST después de
+/// Canal en tiempo real de los chats de soporte (tickets usuario↔soporte,
+/// solicitudes internas soporte↔admin) y de las notificaciones app-wide
+/// (ticket nuevo, mensaje nuevo). Este hub solo gestiona la membresía a los
+/// grupos — los eventos los emiten los controllers REST después de
 /// persistir, para que la API HTTP siga siendo la única fuente de verdad.
 [Authorize]
 public class ChatHub : Hub
@@ -25,6 +26,19 @@ public class ChatHub : Hub
 
     public static string TicketGroup(Guid id) => $"ticket:{id}";
     public static string SolicitudGroup(Guid id) => $"solicitud:{id}";
+    public static string StaffNotificationsGroup => "notif:staff";
+    public static string UserNotificationsGroup(Guid userId) => $"notif:user:{userId}";
+
+    // Toda conexión se une automáticamente a su grupo de notificaciones según
+    // rol, sin esperar a que abra un ticket puntual: así el staff se entera de
+    // tickets/mensajes nuevos de cualquier usuario, y cada usuario de las
+    // respuestas nuevas en sus propios tickets.
+    public override async Task OnConnectedAsync()
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId,
+            EsStaff ? StaffNotificationsGroup : UserNotificationsGroup(UserId));
+        await base.OnConnectedAsync();
+    }
 
     // ── Tickets (usuario ↔ soporte) ──────────────────────────────────────────
 
