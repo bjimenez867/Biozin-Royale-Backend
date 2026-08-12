@@ -38,6 +38,7 @@ public class InternalRequestsController : ControllerBase
             Id = resultado.ReturnValue!.Id,
             RequestNumber = resultado.ReturnValue.RequestNumber,
             Subject = resultado.ReturnValue.Subject,
+            RequestedById = soporteId,
             RequestedByName = resultado.ReturnValue.RequestedByName,
             CreatedAt = resultado.ReturnValue.CreatedAt,
         });
@@ -114,6 +115,7 @@ public class InternalRequestsController : ControllerBase
                 SolicitudId = id,
                 RequestNumber = info.ReturnValue.RequestNumber,
                 Subject = info.ReturnValue.Subject,
+                SenderId = senderId,
                 SenderName = resultado.ReturnValue!.SenderName,
                 Body = resultado.ReturnValue.Body,
                 CreatedAt = resultado.ReturnValue.CreatedAt,
