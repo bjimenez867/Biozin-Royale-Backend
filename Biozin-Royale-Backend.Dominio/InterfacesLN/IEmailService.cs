@@ -35,6 +35,13 @@ namespace Biozin_Royale_Backend.Dominio.InterfacesLN
             string correoRemitente
         );
 
+        Task EnviarCodigoDesactivar2FAAsync(
+            string correoDestino,
+            string nombre,
+            string codigo,
+            string correoRemitente
+        );
+
         Task EnviarAutoReplyTicketAsync(
             string correoDestino,
             string nombre,

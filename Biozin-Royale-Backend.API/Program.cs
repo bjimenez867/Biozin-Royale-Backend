@@ -81,6 +81,22 @@ builder.Services.AddRateLimiter(options =>
         });
     });
 
+    // Envío/reenvío del código de correo para desactivar 2FA. Bucket propio y
+    // separado de "sensitive": si compartiera el mismo balde de 5/15min, pedir el
+    // código (y un reenvío) dejaría al usuario sin cupo para completar la propia
+    // desactivación o para cambiar contraseña/PIN/activar 2FA en la misma ventana.
+    options.AddPolicy("twofa-code", ctx =>
+    {
+        var key = ctx.User.FindFirst("sub")?.Value ?? GetClientIp(ctx);
+        return RateLimitPartition.GetFixedWindowLimiter("twofa-code:" + key, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit          = 5,
+            Window               = TimeSpan.FromMinutes(15),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit           = 0,
+        });
+    });
+
     // Inicio de operaciones financieras (depósitos y retiros).
     options.AddPolicy("payments", ctx =>
     {

@@ -12,7 +12,8 @@ public interface IProfileLN
     Task<Response<bool>> CambiarPinAsync(Guid userId, string oldPin, string newPin);
     Task<Response<bool>> CambiarEstadoPinAsync(Guid userId, string pin, bool enabled);
     Task<Response<bool>> VerificarPinAsync(Guid userId, string pin);
-    Task<Response<bool>> CambiarEstadoTwoFactorAsync(Guid userId, string password, bool enabled);
+    Task<Response<bool>> CambiarEstadoTwoFactorAsync(Guid userId, string password, bool enabled, string? code);
+    Task<Response<bool>> EnviarCodigoDesactivarTwoFactorAsync(Guid userId);
     Task<Response<List<TSession>>> ObtenerSesionesAsync(Guid userId, Guid? currentSessionId);
     Task<Response<bool>> CerrarSesionAsync(Guid userId, Guid sessionId);
     Task<Response<bool>> CerrarOtrasSesionesAsync(Guid userId, Guid currentSessionId);

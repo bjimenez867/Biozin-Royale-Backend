@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
@@ -13,12 +14,18 @@ public class ProfileLN : IProfileLN
 {
     private readonly IUnitWork _unitOfWork;
     private readonly IMemoryCache _cache;
+    private readonly IEmailService _emailService;
+    private readonly IConfiguration _configuration;
     private readonly string _avatarsBaseUrl;
 
-    public ProfileLN(IUnitWork unitOfWork, IMemoryCache cache, IConfiguration config)
+    private static string GenerarCodigoSeguro() => RandomNumberGenerator.GetInt32(100_000, 1_000_000).ToString();
+
+    public ProfileLN(IUnitWork unitOfWork, IMemoryCache cache, IConfiguration config, IEmailService emailService)
     {
         _unitOfWork = unitOfWork;
         _cache = cache;
+        _configuration = config;
+        _emailService = emailService;
         _avatarsBaseUrl = config["Supabase:AvatarsBucketBaseUrl"] ?? "";
     }
 
@@ -268,7 +275,52 @@ public class ProfileLN : IProfileLN
         return resultado;
     }
 
-    public async Task<Response<bool>> CambiarEstadoTwoFactorAsync(Guid userId, string password, bool enabled)
+    public async Task<Response<bool>> EnviarCodigoDesactivarTwoFactorAsync(Guid userId)
+    {
+        var resultado = new Response<bool>();
+
+        var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == userId);
+        if (perfil is null)
+        {
+            resultado.lpError("Perfil no encontrado", "No existe un perfil asociado a esta sesión.");
+            return resultado;
+        }
+
+        if (!perfil.TwoFactorEnabled)
+        {
+            resultado.lpError("2FA no activo", "La verificación en dos pasos no está activada.");
+            return resultado;
+        }
+
+        var remitente = _configuration["Mail:Remitente"] ?? "no-reply@biozinroyale.com";
+
+        var codigo = GenerarCodigoSeguro();
+        perfil.TwoFactorCode = BCrypt.Net.BCrypt.HashPassword(codigo);
+        perfil.TwoFactorCodeExpiresAt = DateTime.UtcNow.AddMinutes(10);
+        perfil.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Profiles.Modificar(perfil);
+        await _unitOfWork.CompletarAsync();
+
+        try
+        {
+            await _emailService.EnviarCodigoDesactivar2FAAsync(
+                correoDestino: perfil.Email,
+                nombre: perfil.DisplayName ?? perfil.Username,
+                codigo: codigo,
+                correoRemitente: remitente
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[2FA] Error enviando código de desactivación a {perfil.Email}: {ex.GetType().Name} — {ex.Message}");
+        }
+
+        resultado.ReturnValue = true;
+        return resultado;
+    }
+
+    public async Task<Response<bool>> CambiarEstadoTwoFactorAsync(Guid userId, string password, bool enabled, string? code)
     {
         var resultado = new Response<bool>();
 
@@ -282,10 +334,37 @@ public class ProfileLN : IProfileLN
         // Las cuentas de Google no tienen contraseña propia, así que no hay nada que
         // verificar contra ellas: se permite el cambio directo. Las cuentas con
         // contraseña sí deben confirmarla, igual que para PIN.
-        if (!string.IsNullOrEmpty(perfil.Password) && !BCrypt.Net.BCrypt.Verify(password, perfil.Password))
+        var tienePassword = !string.IsNullOrEmpty(perfil.Password);
+        if (tienePassword && !BCrypt.Net.BCrypt.Verify(password, perfil.Password))
         {
             resultado.lpError("Contraseña incorrecta", "La contraseña ingresada es incorrecta.");
             return resultado;
+        }
+
+        // Para desactivar 2FA se exige una segunda prueba de identidad además de lo ya
+        // validado arriba: las cuentas con contraseña ya la confirmaron (equivalente a
+        // PIN), así que no se les pide también el código. Las cuentas sin contraseña
+        // (Google) no tienen ese primer factor, así que el código enviado por correo
+        // (ver EnviarCodigoDesactivarTwoFactorAsync) es su única prueba y sí se exige.
+        if (!enabled && perfil.TwoFactorEnabled && !tienePassword)
+        {
+            if (string.IsNullOrEmpty(perfil.TwoFactorCode) || perfil.TwoFactorCodeExpiresAt is null)
+            {
+                resultado.lpError("Código requerido", "Solicita un código de verificación a tu correo antes de continuar.");
+                return resultado;
+            }
+
+            if (DateTime.UtcNow > perfil.TwoFactorCodeExpiresAt)
+            {
+                resultado.lpError("Código expirado", "El código de verificación ha expirado. Solicita uno nuevo.");
+                return resultado;
+            }
+
+            if (string.IsNullOrEmpty(code) || !BCrypt.Net.BCrypt.Verify(code.Trim(), perfil.TwoFactorCode))
+            {
+                resultado.lpError("Código incorrecto", "El código ingresado no es correcto.");
+                return resultado;
+            }
         }
 
         perfil.TwoFactorEnabled = enabled;
