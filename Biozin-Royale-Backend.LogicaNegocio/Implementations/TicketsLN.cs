@@ -215,11 +215,17 @@ public class TicketsLN : ITicketsLN
                 resultado.lpError("Sin permiso", "No tienes acceso a este ticket.");
                 return resultado;
             }
-            if (ticket.Status == "resuelto" || ticket.Status == "cerrado")
-            {
-                resultado.lpError("Ticket cerrado", "El ticket está cerrado. Reabre el ticket para continuar la conversación.");
-                return resultado;
-            }
+        }
+
+        // El cierre bloquea a CUALQUIER remitente, no solo al usuario: antes
+        // soporte podía seguir respondiendo tickets ya resueltos/cerrados.
+        if (ticket.Status == "resuelto" || ticket.Status == "cerrado")
+        {
+            var mensajeCierre = (senderRole == "user" || senderRole == "authenticated")
+                ? "El ticket está cerrado. Reabre el ticket para continuar la conversación."
+                : "El ticket está cerrado y ya no admite nuevos mensajes.";
+            resultado.lpError("Ticket cerrado", mensajeCierre);
+            return resultado;
         }
 
         string senderName;
@@ -315,6 +321,14 @@ public class TicketsLN : ITicketsLN
         if (ticket == null)
         {
             resultado.lpError("No encontrado", "El ticket no existe.");
+            return resultado;
+        }
+
+        // "cerrado" es terminal (solo lo alcanza el usuario vía CerrarAsync/RateAsync,
+        // nunca este método): una vez ahí, ni siquiera el estado se puede tocar.
+        if (ticket.Status == "cerrado")
+        {
+            resultado.lpError("Ticket cerrado", "El ticket está cerrado y no admite cambios de estado.");
             return resultado;
         }
 

@@ -162,18 +162,18 @@ public class InternalRequestsLN : IInternalRequestsLN
             return Task.FromResult(resultado);
         }
 
-        if (senderRole == "soporte")
+        if (senderRole == "soporte" && solicitud.RequestedBy != senderId)
         {
-            if (solicitud.RequestedBy != senderId)
-            {
-                resultado.lpError("Sin permiso", "No tienes acceso a esta solicitud.");
-                return Task.FromResult(resultado);
-            }
-            if (solicitud.Status == "resuelto" || solicitud.Status == "cerrado")
-            {
-                resultado.lpError("Solicitud cerrada", "La solicitud está cerrada.");
-                return Task.FromResult(resultado);
-            }
+            resultado.lpError("Sin permiso", "No tienes acceso a esta solicitud.");
+            return Task.FromResult(resultado);
+        }
+
+        // El cierre bloquea a CUALQUIER remitente, no solo a soporte: antes el
+        // admin podía seguir escribiendo en solicitudes ya resueltas/cerradas.
+        if (solicitud.Status == "resuelto" || solicitud.Status == "cerrado")
+        {
+            resultado.lpError("Solicitud cerrada", "La solicitud está cerrada.");
+            return Task.FromResult(resultado);
         }
 
         var remitente = _unitOfWork.StaffMembers.ObtenerEntidad(s => s.Id == senderId).ReturnValue;
@@ -228,6 +228,13 @@ public class InternalRequestsLN : IInternalRequestsLN
         if (solicitud == null)
         {
             resultado.lpError("No encontrado", "La solicitud no existe.");
+            return Task.FromResult(resultado);
+        }
+
+        // "cerrado" es terminal: una vez ahí, ni siquiera el estado se puede tocar.
+        if (solicitud.Status == "cerrado")
+        {
+            resultado.lpError("Solicitud cerrada", "La solicitud está cerrada y no admite cambios de estado.");
             return Task.FromResult(resultado);
         }
 
