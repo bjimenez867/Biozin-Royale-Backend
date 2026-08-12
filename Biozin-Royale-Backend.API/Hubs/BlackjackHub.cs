@@ -100,6 +100,13 @@ public class BlackjackHub : Hub
         return _manager.PlaceBetAsync(roomId, UserId, amount);
     }
 
+    /// Chat rápido: solo un índice de la lista fija del servidor, nunca texto libre.
+    public Task QuickChat(int index)
+    {
+        if (CurrentRoom is not int roomId) throw new HubException("No estás en una mesa.");
+        return _manager.SendQuickChatAsync(roomId, UserId, index);
+    }
+
     public Task Action(string action)
     {
         if (CurrentRoom is not int roomId) throw new HubException("No estás en una mesa.");

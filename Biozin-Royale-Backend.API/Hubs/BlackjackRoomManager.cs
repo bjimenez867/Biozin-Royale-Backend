@@ -24,6 +24,8 @@ public sealed class BjRoomPlayer
     /// Asiento del motor en la ronda en curso (null si no apostó).
     public BjSeat? Seat { get; set; }
     public int MissedRounds { get; set; }
+    /// Último mensaje de chat rápido enviado (anti-spam).
+    public DateTime LastChatUtc { get; set; }
 }
 
 public sealed class BjBot
@@ -77,6 +79,23 @@ public sealed class BlackjackRoomManager
     private const int IntermissionMs = 4500;
     private const int MaxMissedRounds = 3;    // rondas sin apostar antes de expulsar
     private const int MaxPrivateRooms = 50;
+
+    // Chat rápido: frases fijas (estilo Clash Royale). El cliente solo manda el
+    // índice — nunca texto libre — así no hay forma de inyectar contenido
+    // arbitrario. Mantener sincronizado con quickChats en blackjack.component.ts.
+    public static readonly string[] QuickChats =
+    [
+        "¡Hola! 👋",
+        "¡Buena suerte! 🍀",
+        "¡Bien jugado! 👏",
+        "¡Vamos!",
+        "Uy, casi…",
+        "Qué mala suerte 😅",
+        "¡Gracias!",
+        "Me voy, ¡suerte! ✌️",
+    ];
+
+    private const int ChatCooldownMs = 2000; // anti-spam por jugador
 
     private static readonly (string Name, string Avatar)[] BotProfiles =
     [
@@ -450,6 +469,44 @@ public sealed class BlackjackRoomManager
             room.TurnTcs.TrySetResult(action);
         }
         finally { room.Sem.Release(); }
+    }
+
+    /// Chat rápido: el cliente manda un índice de QuickChats y el servidor
+    /// difunde el texto ya resuelto al resto de la mesa.
+    public async Task SendQuickChatAsync(int roomId, Guid userId, int index)
+    {
+        if (index < 0 || index >= QuickChats.Length)
+            throw new HubException("Mensaje inválido.");
+
+        var room = GetRoom(roomId);
+        int chair;
+        string name;
+
+        await room.Sem.WaitAsync();
+        try
+        {
+            var player = room.Players.FirstOrDefault(p => p.UserId == userId)
+                ?? throw new HubException("No estás en esta mesa.");
+            if (player.Chair is null)
+                throw new HubException("Aún no tienes asiento en la mesa.");
+
+            var ahora = DateTime.UtcNow;
+            if ((ahora - player.LastChatUtc).TotalMilliseconds < ChatCooldownMs)
+                throw new HubException("Espera un momento antes de enviar otro mensaje.");
+            player.LastChatUtc = ahora;
+
+            chair = player.Chair.Value;
+            name = player.Name;
+        }
+        finally { room.Sem.Release(); }
+
+        await _hub.Clients.Group(room.Group).SendAsync("chat", new
+        {
+            chair,
+            name,
+            userId,
+            text = QuickChats[index],
+        });
     }
 
     // ── Loop de la sala ───────────────────────────────────────────────────────
