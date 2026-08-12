@@ -21,3 +21,8 @@ public class TCreatePromotion
     public DateTime? StartsAt { get; set; }
     public DateTime? EndsAt { get; set; }
 }
+
+public class TToggleBono
+{
+    public int? ExtendDays { get; set; }
+}

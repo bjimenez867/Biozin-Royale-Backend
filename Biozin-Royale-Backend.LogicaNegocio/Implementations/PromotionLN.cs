@@ -77,7 +77,7 @@ public class PromotionLN : IPromotionLN
         return resultado;
     }
 
-    public async Task<Response<TPromotion>> ToggleActivoAsync(Guid adminId, Guid promotionId)
+    public async Task<Response<TPromotion>> ToggleActivoAsync(Guid adminId, Guid promotionId, int? extendDays = null)
     {
         var resultado = new Response<TPromotion>();
         if (!await EsAdminAsync(adminId))
@@ -99,7 +99,20 @@ public class PromotionLN : IPromotionLN
             return resultado;
         }
 
-        promo.IsActive = !promo.IsActive;
+        var activando = !promo.IsActive;
+        var expirado = promo.EndsAt is not null && promo.EndsAt <= DateTime.UtcNow;
+
+        if (activando && expirado)
+        {
+            if (extendDays is not (3 or 5 or 7))
+            {
+                resultado.lpError("Extensión requerida", "Este bono expiró; indica por cuántos días extenderlo (3, 5 o 7).");
+                return resultado;
+            }
+            promo.EndsAt = DateTime.UtcNow.AddDays(extendDays.Value);
+        }
+
+        promo.IsActive = activando;
         _unitOfWork.Promotions.Modificar(promo);
         await _unitOfWork.CompletarAsync();
 

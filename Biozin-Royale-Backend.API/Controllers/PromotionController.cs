@@ -67,10 +67,10 @@ public class PromotionController : ControllerBase
 
     [HttpPut("admin/{id:guid}/toggle")]
     [Authorize(Roles = "admin")]
-    public async Task<IActionResult> AdminToggle(Guid id)
+    public async Task<IActionResult> AdminToggle(Guid id, [FromBody] TToggleBono? datos)
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
-        var res = await _promotionLN.ToggleActivoAsync(userId, id);
+        var res = await _promotionLN.ToggleActivoAsync(userId, id, datos?.ExtendDays);
         return res.blnError ? BadRequest(res) : Ok(res);
     }
 
