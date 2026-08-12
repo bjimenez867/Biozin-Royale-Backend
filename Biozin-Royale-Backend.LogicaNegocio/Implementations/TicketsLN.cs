@@ -580,6 +580,60 @@ public class TicketsLN : ITicketsLN
         return Task.FromResult(resultado);
     }
 
+    // ── Notificaciones (usuario) ──────────────────────────────────────────
+
+    public Task<Response<TTicketNotificaciones>> ObtenerNotificacionesUsuarioAsync(Guid userId, DateTime since)
+    {
+        var resultado = new Response<TTicketNotificaciones>();
+        var ahora = DateTime.UtcNow;
+
+        var misTicketIds = _unitOfWork.SupportTickets
+            .ObtenerEntidades(t => t.UserId == userId)
+            .ReturnValue?
+            .Select(t => t.Id)
+            .ToList() ?? new List<Guid>();
+
+        // Solo respuestas de soporte/sistema en tickets propios: los mensajes que el
+        // propio usuario mandó no deben volver como "notificación nueva" para él mismo.
+        var mensajesNuevos = misTicketIds.Count > 0
+            ? _unitOfWork.TicketMessages
+                .ObtenerEntidades(m => misTicketIds.Contains(m.TicketId) && m.CreatedAt > since
+                    && m.SenderRole != "user" && m.SenderRole != "authenticated")
+                .ReturnValue?
+                .OrderBy(m => m.CreatedAt)
+                .ToList() ?? new List<TicketMessage>()
+            : new List<TicketMessage>();
+
+        var ticketIdsDeMensajes = mensajesNuevos.Select(m => m.TicketId).Distinct().ToList();
+        var ticketsPorId = ticketIdsDeMensajes.Count > 0
+            ? _unitOfWork.SupportTickets.ObtenerEntidades(t => ticketIdsDeMensajes.Contains(t.Id)).ReturnValue?
+                .ToDictionary(t => t.Id) ?? new Dictionary<Guid, SupportTicket>()
+            : new Dictionary<Guid, SupportTicket>();
+
+        resultado.ReturnValue = new TTicketNotificaciones
+        {
+            NuevosTickets = new List<TNuevoTicketNotif>(),
+            NuevosMensajes = mensajesNuevos
+                .Where(m => ticketsPorId.ContainsKey(m.TicketId))
+                .Select(m =>
+                {
+                    var t = ticketsPorId[m.TicketId];
+                    return new TNuevoMensajeNotif
+                    {
+                        TicketId = t.Id,
+                        TicketNumber = t.TicketNumber,
+                        Subject = t.Subject,
+                        SenderName = m.SenderName,
+                        Body = m.Body,
+                        CreatedAt = m.CreatedAt,
+                    };
+                }).ToList(),
+            ServerTime = ahora,
+        };
+
+        return Task.FromResult(resultado);
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private static TTicketResultado MapTicket(

@@ -146,13 +146,12 @@ public class TicketsController : ControllerBase
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
-    // ── Notificaciones (solo staff) ─────────────────────────────────────────
+    // ── Notificaciones ───────────────────────────────────────────────────────
 
     [HttpGet("notifications")]
     public async Task<IActionResult> ObtenerNotificaciones([FromQuery] DateTime? since)
     {
-        if (!TryGetUserId(out _)) return Unauthorized();
-        if (!IsStaff()) return Forbid();
+        if (!TryGetUserId(out var userId)) return Unauthorized();
 
         // El binder de query string puede parsear el sufijo "Z" del ISO string del cliente
         // convirtiéndolo a hora local del servidor (Kind=Local); si solo re-etiquetáramos
@@ -166,7 +165,12 @@ public class TicketsController : ControllerBase
             { } dt => DateTime.SpecifyKind(dt, DateTimeKind.Utc),
         };
 
-        var resultado = await _ticketsLN.ObtenerNotificacionesAsync(sinceUtc);
+        // Staff ve tickets/mensajes nuevos de todos los usuarios; un usuario normal
+        // solo ve respuestas nuevas de soporte en sus propios tickets.
+        var resultado = IsStaff()
+            ? await _ticketsLN.ObtenerNotificacionesAsync(sinceUtc)
+            : await _ticketsLN.ObtenerNotificacionesUsuarioAsync(userId, sinceUtc);
+
         return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
     }
 
