@@ -30,7 +30,19 @@ public class InternalRequestsController : ControllerBase
         if (GetRole() != "soporte") return Forbid();
 
         var resultado = await _internalRequestsLN.CrearAsync(datos, soporteId);
-        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+        if (resultado.blnError) return BadRequest(resultado);
+
+        // Tiempo real: el admin se entera de la solicitud nueva sin tener que sondear.
+        await _chatHub.Clients.Group(ChatHub.StaffNotificationsGroup).SendAsync("nuevaSolicitud", new TNuevaSolicitudNotif
+        {
+            Id = resultado.ReturnValue!.Id,
+            RequestNumber = resultado.ReturnValue.RequestNumber,
+            Subject = resultado.ReturnValue.Subject,
+            RequestedByName = resultado.ReturnValue.RequestedByName,
+            CreatedAt = resultado.ReturnValue.CreatedAt,
+        });
+
+        return Ok(resultado);
     }
 
     [HttpGet]
@@ -84,13 +96,29 @@ public class InternalRequestsController : ControllerBase
     {
         if (!TryGetUserId(out var senderId)) return Unauthorized();
 
-        var resultado = await _internalRequestsLN.EnviarMensajeAsync(id, senderId, GetRole(), datos);
+        var role = GetRole();
+        var resultado = await _internalRequestsLN.EnviarMensajeAsync(id, senderId, role, datos);
         if (resultado.blnError) return BadRequest(resultado);
 
         // Tiempo real: el otro extremo del chat lo recibe al instante (el emisor
         // deduplica por id, ya que también está en el grupo)
         await _chatHub.Clients.Group(ChatHub.SolicitudGroup(id))
             .SendAsync("solicitudMensaje", new { solicitudId = id, mensaje = resultado.ReturnValue });
+
+        // Notificación app-wide para quien no tenga la solicitud abierta.
+        var info = await _internalRequestsLN.ObtenerAsync(id, senderId, role);
+        if (!info.blnError && info.ReturnValue != null)
+        {
+            await _chatHub.Clients.Group(ChatHub.StaffNotificationsGroup).SendAsync("nuevoMensajeSolicitud", new TNuevoMensajeSolicitudNotif
+            {
+                SolicitudId = id,
+                RequestNumber = info.ReturnValue.RequestNumber,
+                Subject = info.ReturnValue.Subject,
+                SenderName = resultado.ReturnValue!.SenderName,
+                Body = resultado.ReturnValue.Body,
+                CreatedAt = resultado.ReturnValue.CreatedAt,
+            });
+        }
 
         return Ok(resultado);
     }
