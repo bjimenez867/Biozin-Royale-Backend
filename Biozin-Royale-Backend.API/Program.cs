@@ -255,5 +255,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.MapHub<BlackjackHub>("/hubs/blackjack");
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();

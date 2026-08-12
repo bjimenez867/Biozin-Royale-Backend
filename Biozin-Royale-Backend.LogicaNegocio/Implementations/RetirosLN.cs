@@ -107,7 +107,7 @@ public class RetirosLN : IRetirosLN
         _unitOfWork.Wallets.Modificar(wallet);
         await _unitOfWork.CompletarAsync();
 
-        _ = EnviarComprobanteAsync(wallet, tx, "completed");
+        await EnviarComprobanteAsync(wallet, tx, "completed");
 
         resultado.ReturnValue = new TRetiroResultado { TransactionId = tx.Id, NewBalance = wallet.Balance, ReceiptNumber = tx.ReceiptNumber };
         return resultado;
@@ -132,7 +132,7 @@ public class RetirosLN : IRetirosLN
 
         await _unitOfWork.CompletarAsync();
 
-        _ = EnviarComprobanteAsync(wallet, tx, "pending");
+        await EnviarComprobanteAsync(wallet, tx, "pending");
 
         resultado.ReturnValue = new TRetiroResultado { TransactionId = tx.Id, NewBalance = wallet.Balance, ReceiptNumber = tx.ReceiptNumber };
         return resultado;
@@ -140,6 +140,13 @@ public class RetirosLN : IRetirosLN
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    // El lookup de perfil se resuelve aquí (dentro del await de la respuesta) y NO
+    // dentro del Task.Run: si se llamara fire-and-forget completo, el scope de DI
+    // (y el DbContext detrás de _unitOfWork) podría ya estar liberado para cuando
+    // esta consulta se ejecute — la excepción quedaría como "unobserved task
+    // exception", sin loguearse, y el correo nunca saldría. Solo el envío en sí
+    // (sin dependencias del scope, solo _config e IEmailService) queda en segundo
+    // plano para no demorar la respuesta al usuario.
     private async Task EnviarComprobanteAsync(Wallet wallet, WalletTransaction tx, string estado)
     {
         var perfil = await _unitOfWork.Profiles.ObtenerEntidadAsync(p => p.UserId == wallet.UserId);

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Configuration;
 using Biozin_Royale_Backend.Dominio.Entities;
 using Biozin_Royale_Backend.Dominio.InterfacesAD;
 using Biozin_Royale_Backend.LogicaNegocio.Implementations.Blackjack;
@@ -91,15 +92,18 @@ public sealed class BlackjackRoomManager
     private readonly IHubContext<BlackjackHub> _hub;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<BlackjackRoomManager> _logger;
+    private readonly string _avatarsBaseUrl;
 
     public BlackjackRoomManager(
         IHubContext<BlackjackHub> hub,
         IServiceScopeFactory scopeFactory,
+        IConfiguration configuration,
         ILogger<BlackjackRoomManager> logger)
     {
         _hub = hub;
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _avatarsBaseUrl = configuration["Supabase:AvatarsBucketBaseUrl"] ?? "";
 
         // Mismas 5 mesas que muestra el lobby del frontend (tables.data.ts)
         _rooms =
@@ -262,13 +266,27 @@ public sealed class BlackjackRoomManager
             if (perfil.IsGuest)
                 throw new HubException("Crea una cuenta para jugar con dinero real.");
             name = perfil.DisplayName ?? perfil.Username;
-            avatar = null; // el avatar del jugador lo resuelve el frontend con su propio perfil
+
+            avatar = null;
+            if (perfil.AvatarId is not null)
+            {
+                var av = await uow.Avatars.ObtenerEntidadAsync(a => a.Id == perfil.AvatarId);
+                if (av is not null) avatar = $"{_avatarsBaseUrl}/{av.StoragePath}";
+            }
         }
 
         await room.Sem.WaitAsync();
         try
         {
             var player = room.Players.FirstOrDefault(p => p.UserId == userId);
+
+            // No se permite entrar a una ronda que ya está en curso — solo
+            // reconectar si ya eras parte de la mesa. Evita jugadores mirando a
+            // mitad de partida sin contexto y sillas que nunca llegan a jugar esa
+            // ronda de todas formas (quedarían como espectadores hasta la próxima).
+            if (player is null && room.State is "dealing" or "acting" or "dealer")
+                throw new HubException("La mesa está jugando una ronda. Espera a que termine para unirte.");
+
             if (player is not null)
             {
                 player.ConnectionId = connectionId; // reconexión: conserva silla y apuesta
