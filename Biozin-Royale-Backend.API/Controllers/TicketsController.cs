@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using Biozin_Royale_Backend.API.Hubs;
 using Biozin_Royale_Backend.Dominio.InterfacesLN;
 using Biozin_Royale_Backend.Dominio.TypedEntities;
 using System.Security.Claims;
@@ -12,10 +14,12 @@ namespace Biozin_Royale_Backend.API.Controllers;
 public class TicketsController : ControllerBase
 {
     private readonly ITicketsLN _ticketsLN;
+    private readonly IHubContext<ChatHub> _chatHub;
 
-    public TicketsController(ITicketsLN ticketsLN)
+    public TicketsController(ITicketsLN ticketsLN, IHubContext<ChatHub> chatHub)
     {
         _ticketsLN = ticketsLN;
+        _chatHub = chatHub;
     }
 
     // ── Tickets ────────────────────────────────────────────────────────────
@@ -79,7 +83,14 @@ public class TicketsController : ControllerBase
 
         var role = GetRole();
         var resultado = await _ticketsLN.EnviarMensajeAsync(id, senderId, role, datos);
-        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+        if (resultado.blnError) return BadRequest(resultado);
+
+        // Tiempo real: el otro extremo del chat lo recibe al instante (el emisor
+        // deduplica por id, ya que también está en el grupo)
+        await _chatHub.Clients.Group(ChatHub.TicketGroup(id))
+            .SendAsync("ticketMensaje", new { ticketId = id, mensaje = resultado.ReturnValue });
+
+        return Ok(resultado);
     }
 
     // ── Gestión (solo staff) ───────────────────────────────────────────────
@@ -91,7 +102,10 @@ public class TicketsController : ControllerBase
         if (!IsStaff()) return Forbid();
 
         var resultado = await _ticketsLN.AsignarTicketAsync(id, datos.StaffMemberId);
-        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+        if (resultado.blnError) return BadRequest(resultado);
+
+        await NotificarTicketAsync(id, resultado.ReturnValue!);
+        return Ok(resultado);
     }
 
     [HttpPatch("{id:guid}/status")]
@@ -101,7 +115,10 @@ public class TicketsController : ControllerBase
         if (!IsStaff()) return Forbid();
 
         var resultado = await _ticketsLN.CambiarEstadoAsync(id, datos.Status);
-        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+        if (resultado.blnError) return BadRequest(resultado);
+
+        await NotificarTicketAsync(id, resultado.ReturnValue!);
+        return Ok(resultado);
     }
 
     // ── Acciones del usuario ───────────────────────────────────────────────
@@ -113,7 +130,10 @@ public class TicketsController : ControllerBase
         if (IsStaff()) return Forbid();
 
         var resultado = await _ticketsLN.ReopenAsync(id, userId);
-        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+        if (resultado.blnError) return BadRequest(resultado);
+
+        await NotificarTicketAsync(id, resultado.ReturnValue!);
+        return Ok(resultado);
     }
 
     [HttpPost("{id:guid}/rate")]
@@ -123,7 +143,10 @@ public class TicketsController : ControllerBase
         if (IsStaff()) return Forbid();
 
         var resultado = await _ticketsLN.RateAsync(id, userId, datos.Rating);
-        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+        if (resultado.blnError) return BadRequest(resultado);
+
+        await NotificarTicketAsync(id, resultado.ReturnValue!);
+        return Ok(resultado);
     }
 
     [HttpPost("{id:guid}/cerrar")]
@@ -133,7 +156,10 @@ public class TicketsController : ControllerBase
         if (IsStaff()) return Forbid();
 
         var resultado = await _ticketsLN.CerrarAsync(id, userId);
-        return resultado.blnError ? BadRequest(resultado) : Ok(resultado);
+        if (resultado.blnError) return BadRequest(resultado);
+
+        await NotificarTicketAsync(id, resultado.ReturnValue!);
+        return Ok(resultado);
     }
 
     [HttpGet("agents")]
@@ -171,6 +197,11 @@ public class TicketsController : ControllerBase
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
+
+    /// Cambios de estado/asignación/valoración: ambos lados del chat ven el
+    /// ticket actualizado al instante sin recargar.
+    private Task NotificarTicketAsync(Guid id, object ticket) =>
+        _chatHub.Clients.Group(ChatHub.TicketGroup(id)).SendAsync("ticketActualizado", ticket);
 
     private bool TryGetUserId(out Guid userId)
     {
