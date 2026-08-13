@@ -1,0 +1,244 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.profiles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  username character varying NOT NULL UNIQUE,
+  display_name character varying,
+  avatar_id integer,
+  is_guest boolean NOT NULL DEFAULT false,
+  status character varying NOT NULL DEFAULT 'active'::character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  phone character varying,
+  email character varying NOT NULL,
+  country character varying,
+  birthdate date,
+  password character varying,
+  reset_code character varying,
+  reset_code_expires_at timestamp with time zone,
+  email_verified boolean NOT NULL DEFAULT false,
+  verify_code character varying,
+  verify_code_expires_at timestamp with time zone,
+  pin_hash text,
+  pin_enabled boolean NOT NULL DEFAULT false,
+  two_factor_enabled boolean NOT NULL DEFAULT false,
+  two_factor_code text,
+  two_factor_code_expires_at timestamp with time zone,
+  failed_login_attempts integer NOT NULL DEFAULT 0,
+  locked_until timestamp with time zone,
+  player_id bigint UNIQUE,
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT profiles_avatar_id_fkey FOREIGN KEY (avatar_id) REFERENCES public.avatars(id)
+);
+CREATE TABLE public.wallets (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid DEFAULT auth.uid() UNIQUE,
+  balance numeric NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT wallets_pkey PRIMARY KEY (id),
+  CONSTRAINT wallets_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.wallet_transactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  wallet_id uuid NOT NULL,
+  transaction_type character varying NOT NULL,
+  status character varying NOT NULL,
+  amount numeric NOT NULL,
+  balance_before numeric NOT NULL,
+  balance_after numeric NOT NULL,
+  reference_type character varying,
+  reference_id uuid,
+  metadata text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  receipt_number text,
+  CONSTRAINT wallet_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT wallet_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id)
+);
+CREATE TABLE public.promotions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title character varying NOT NULL,
+  description text,
+  is_active boolean NOT NULL DEFAULT true,
+  ends_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  amount numeric NOT NULL DEFAULT 0,
+  target_user_id uuid,
+  CONSTRAINT promotions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.promotion_claims (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  promotion_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  status character varying NOT NULL,
+  claimed_at timestamp with time zone NOT NULL DEFAULT now(),
+  completed_at timestamp with time zone,
+  CONSTRAINT promotion_claims_pkey PRIMARY KEY (id),
+  CONSTRAINT promotion_claims_promotion_id_fkey FOREIGN KEY (promotion_id) REFERENCES public.promotions(id),
+  CONSTRAINT promotion_claims_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.support_tickets (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  subject character varying NOT NULL,
+  category character varying NOT NULL,
+  priority character varying NOT NULL DEFAULT 'normal'::character varying,
+  status character varying NOT NULL DEFAULT 'nuevo'::character varying CHECK (status::text = ANY (ARRAY['nuevo'::character varying, 'en_proceso'::character varying, 'resuelto'::character varying, 'cerrado'::character varying]::text[])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  ticket_number integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  assigned_to uuid,
+  description text NOT NULL DEFAULT ''::text,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  rating smallint CHECK (rating >= 1 AND rating <= 5),
+  rated_at timestamp with time zone,
+  CONSTRAINT support_tickets_pkey PRIMARY KEY (id),
+  CONSTRAINT support_tickets_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT support_tickets_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.staff_members(id)
+);
+CREATE TABLE public.__EFMigrationsHistory (
+  MigrationId character varying NOT NULL,
+  ProductVersion character varying NOT NULL,
+  CONSTRAINT __EFMigrationsHistory_pkey PRIMARY KEY (MigrationId)
+);
+CREATE TABLE public.avatars (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  name character varying NOT NULL,
+  storage_path text NOT NULL UNIQUE,
+  description character varying,
+  is_active boolean NOT NULL DEFAULT true,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT avatars_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.bets (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  game_type character varying NOT NULL,
+  round_id uuid,
+  amount numeric NOT NULL,
+  payout numeric NOT NULL DEFAULT 0,
+  profit numeric DEFAULT (payout - amount),
+  result character varying NOT NULL,
+  status character varying NOT NULL DEFAULT 'settled'::character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  selections text,
+  settled_at timestamp with time zone,
+  CONSTRAINT bets_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.staff_members (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  username character varying NOT NULL UNIQUE,
+  display_name character varying NOT NULL,
+  email character varying NOT NULL UNIQUE,
+  phone character varying,
+  password_hash character varying NOT NULL,
+  status character varying NOT NULL DEFAULT 'active'::character varying,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  must_change_password boolean NOT NULL DEFAULT false,
+  reset_code character varying,
+  reset_code_expires_at timestamp with time zone,
+  role character varying NOT NULL DEFAULT 'soporte'::character varying CHECK (role::text = ANY (ARRAY['admin'::character varying, 'soporte'::character varying]::text[])),
+  failed_login_attempts integer NOT NULL DEFAULT 0,
+  locked_until timestamp with time zone,
+  CONSTRAINT staff_members_pkey PRIMARY KEY (id),
+  CONSTRAINT staff_members_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.staff_members(id)
+);
+CREATE TABLE public.user_blocks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  profile_id uuid NOT NULL,
+  blocked_by uuid NOT NULL,
+  reason character varying NOT NULL CHECK (reason::text = ANY (ARRAY['fraude'::character varying, 'incumplimiento'::character varying, 'conducta'::character varying, 'sospechoso'::character varying, 'otro'::character varying]::text[])),
+  message text NOT NULL,
+  blocked_at timestamp with time zone NOT NULL DEFAULT now(),
+  unblocked_at timestamp with time zone,
+  unblocked_by uuid,
+  is_active boolean NOT NULL DEFAULT true,
+  CONSTRAINT user_blocks_pkey PRIMARY KEY (id),
+  CONSTRAINT user_blocks_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id),
+  CONSTRAINT user_blocks_blocked_by_fkey FOREIGN KEY (blocked_by) REFERENCES public.staff_members(id),
+  CONSTRAINT user_blocks_unblocked_by_fkey FOREIGN KEY (unblocked_by) REFERENCES public.staff_members(id)
+);
+CREATE TABLE public.payment_methods (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  wallet_id uuid NOT NULL,
+  type character varying NOT NULL CHECK (type::text = ANY (ARRAY['paypal'::character varying, 'card'::character varying]::text[])),
+  alias character varying,
+  is_default boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  email character varying,
+  card_holder character varying,
+  last_four character varying,
+  network character varying,
+  expiry_month integer,
+  expiry_year integer,
+  CONSTRAINT payment_methods_pkey PRIMARY KEY (id),
+  CONSTRAINT payment_methods_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id)
+);
+CREATE TABLE public.ticket_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  ticket_id uuid NOT NULL,
+  sender_id uuid NOT NULL,
+  sender_role character varying NOT NULL CHECK (sender_role::text = ANY (ARRAY['user'::character varying, 'authenticated'::character varying, 'soporte'::character varying, 'admin'::character varying, 'system'::character varying]::text[])),
+  sender_name character varying NOT NULL,
+  body text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  file_url character varying,
+  file_name character varying,
+  CONSTRAINT ticket_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT ticket_messages_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.support_tickets(id)
+);
+CREATE TABLE public.sessions (
+  id uuid NOT NULL,
+  profile_id uuid,
+  device_label text,
+  ip_address text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  revoked_at timestamp with time zone,
+  is_active boolean NOT NULL DEFAULT true,
+  staff_id uuid,
+  refresh_token_hash text,
+  refresh_token_expires_at timestamp with time zone,
+  CONSTRAINT sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT sessions_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.security_events (
+  id uuid NOT NULL,
+  profile_id uuid,
+  event_type text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  staff_id uuid,
+  CONSTRAINT security_events_pkey PRIMARY KEY (id),
+  CONSTRAINT security_events_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.internal_requests (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  request_number integer NOT NULL DEFAULT nextval('internal_requests_request_number_seq'::regclass),
+  requested_by uuid NOT NULL,
+  target_admin_id uuid NOT NULL,
+  subject text NOT NULL,
+  description text NOT NULL,
+  status text NOT NULL DEFAULT 'nuevo'::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT internal_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT internal_requests_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES public.staff_members(id),
+  CONSTRAINT internal_requests_target_admin_id_fkey FOREIGN KEY (target_admin_id) REFERENCES public.staff_members(id)
+);
+CREATE TABLE public.internal_request_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  internal_request_id uuid NOT NULL,
+  sender_id uuid NOT NULL,
+  sender_role text NOT NULL,
+  sender_name text NOT NULL,
+  body text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT internal_request_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT internal_request_messages_internal_request_id_fkey FOREIGN KEY (internal_request_id) REFERENCES public.internal_requests(id)
+);
