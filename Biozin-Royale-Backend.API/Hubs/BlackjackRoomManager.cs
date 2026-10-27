@@ -91,8 +91,8 @@ public sealed class BlackjackRoomManager
         "¡Vamos!",
         "Uy, casi…",
         "Qué mala suerte 😅",
-        "¡Gracias!",
-        "Me voy, ¡suerte! ✌️",
+        "Juegue Rapido",
+        "#$%&@! 😡",
     ];
 
     private const int ChatCooldownMs = 2000; // anti-spam por jugador
