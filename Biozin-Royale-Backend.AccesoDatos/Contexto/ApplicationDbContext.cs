@@ -25,6 +25,15 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<Avatar> Avatars => Set<Avatar>();
         public DbSet<InternalRequest> InternalRequests => Set<InternalRequest>();
         public DbSet<InternalRequestMessage> InternalRequestMessages => Set<InternalRequestMessage>();
+        public DbSet<StoreCategory> StoreCategories => Set<StoreCategory>();
+        public DbSet<StoreProduct> StoreProducts => Set<StoreProduct>();
+        public DbSet<StoreProductVariant> StoreProductVariants => Set<StoreProductVariant>();
+        public DbSet<StoreOrder> StoreOrders => Set<StoreOrder>();
+        public DbSet<StoreOrderItem> StoreOrderItems => Set<StoreOrderItem>();
+        public DbSet<StorePayment> StorePayments => Set<StorePayment>();
+        public DbSet<StoreOrderEvent> StoreOrderEvents => Set<StoreOrderEvent>();
+        public DbSet<StoreNotification> StoreNotifications => Set<StoreNotification>();
+        public DbSet<StoreSetting> StoreSettings => Set<StoreSetting>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -317,6 +326,169 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(m => m.ExpiryMonth).HasColumnName("expiry_month");
                 entity.Property(m => m.ExpiryYear).HasColumnName("expiry_year");
                 entity.HasIndex(m => m.WalletId);
+            });
+
+            modelBuilder.Entity<StoreCategory>(entity =>
+            {
+                entity.ToTable("store_categories");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.Name).HasColumnName("name");
+                entity.Property(e => e.Slug).HasColumnName("slug");
+                entity.Property(e => e.Description).HasColumnName("description");
+                entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+                entity.Property(e => e.IsActive).HasColumnName("is_active");
+                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+                entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            });
+            modelBuilder.Entity<StoreProduct>(entity =>
+            {
+                entity.ToTable("store_products");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.Sku).HasColumnName("sku");
+                entity.Property(e => e.Name).HasColumnName("name");
+                entity.Property(e => e.CategoryId).HasColumnName("category_id");
+                entity.Property(e => e.Description).HasColumnName("description");
+                entity.Property(e => e.Price).HasColumnName("price").HasPrecision(12, 2);
+                entity.Property(e => e.ImagePath).HasColumnName("image_path");
+                entity.Property(e => e.ArtType).HasColumnName("art_type");
+                entity.Property(e => e.ArtVariant).HasColumnName("art_variant");
+                entity.Property(e => e.Badge).HasColumnName("badge");
+                entity.Property(e => e.RequiresSize).HasColumnName("requires_size");
+                entity.Property(e => e.IsVisible).HasColumnName("is_visible");
+                entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+                entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            });
+            modelBuilder.Entity<StoreProductVariant>(entity =>
+            {
+                entity.ToTable("store_product_variants");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.ProductId).HasColumnName("product_id");
+                entity.Property(e => e.Size).HasColumnName("size");
+                entity.Property(e => e.Sku).HasColumnName("sku");
+                entity.Property(e => e.Stock).HasColumnName("stock");
+                entity.Property(e => e.ReorderLevel).HasColumnName("reorder_level");
+                entity.Property(e => e.IsActive).HasColumnName("is_active");
+                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+                entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            });
+            modelBuilder.Entity<StoreOrder>(entity =>
+            {
+                entity.ToTable("store_orders");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.OrderNumber).HasColumnName("order_number").ValueGeneratedOnAdd();
+                entity.Property(e => e.UserId).HasColumnName("user_id");
+                entity.Property(e => e.CustomerName).HasColumnName("customer_name");
+                entity.Property(e => e.Phone).HasColumnName("phone");
+                entity.Property(e => e.Province).HasColumnName("province");
+                entity.Property(e => e.Canton).HasColumnName("canton");
+                entity.Property(e => e.District).HasColumnName("district");
+                entity.Property(e => e.AddressLine).HasColumnName("address_line");
+                entity.Property(e => e.Subtotal).HasColumnName("subtotal").HasPrecision(12, 2);
+                entity.Property(e => e.ShippingCost).HasColumnName("shipping_cost").HasPrecision(12, 2);
+                entity.Property(e => e.Total).HasColumnName("total").HasPrecision(12, 2);
+                entity.Property(e => e.PaymentStatus).HasColumnName("payment_status");
+                entity.Property(e => e.FulfillmentPhase).HasColumnName("fulfillment_phase");
+                entity.Property(e => e.IsCancelled).HasColumnName("is_cancelled");
+                entity.Property(e => e.CancelledAt).HasColumnName("cancelled_at");
+                entity.Property(e => e.CancelledById).HasColumnName("cancelled_by_id");
+                entity.Property(e => e.CancelledByRole).HasColumnName("cancelled_by_role");
+                entity.Property(e => e.CancelReason).HasColumnName("cancel_reason");
+                entity.Property(e => e.CarrierName).HasColumnName("carrier_name");
+                entity.Property(e => e.TrackingNumber).HasColumnName("tracking_number");
+                entity.Property(e => e.PackageInfo).HasColumnName("package_info");
+                entity.Property(e => e.DeliveryCode).HasColumnName("delivery_code");
+                entity.Property(e => e.CodeAttempts).HasColumnName("code_attempts");
+                entity.Property(e => e.CodeLockedUntil).HasColumnName("code_locked_until");
+                entity.Property(e => e.HasOpenIncident).HasColumnName("has_open_incident");
+                entity.Property(e => e.RescheduleWindow).HasColumnName("reschedule_window");
+                entity.Property(e => e.EtaFrom).HasColumnName("eta_from").HasColumnType("date");
+                entity.Property(e => e.EtaTo).HasColumnName("eta_to").HasColumnType("date");
+                entity.Property(e => e.Rating).HasColumnName("rating");
+                entity.Property(e => e.RatedAt).HasColumnName("rated_at");
+                entity.Property(e => e.IdempotencyKey).HasColumnName("idempotency_key");
+                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+                entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+                entity.HasIndex(e => e.OrderNumber).IsUnique();
+            });
+            modelBuilder.Entity<StoreOrderItem>(entity =>
+            {
+                entity.ToTable("store_order_items");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.OrderId).HasColumnName("order_id");
+                entity.Property(e => e.ProductId).HasColumnName("product_id");
+                entity.Property(e => e.VariantId).HasColumnName("variant_id");
+                entity.Property(e => e.ProductName).HasColumnName("product_name");
+                entity.Property(e => e.Size).HasColumnName("size");
+                entity.Property(e => e.UnitPrice).HasColumnName("unit_price").HasPrecision(12, 2);
+                entity.Property(e => e.Quantity).HasColumnName("quantity");
+                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            });
+            modelBuilder.Entity<StorePayment>(entity =>
+            {
+                entity.ToTable("store_payments");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.OrderId).HasColumnName("order_id");
+                entity.Property(e => e.Method).HasColumnName("method");
+                entity.Property(e => e.Status).HasColumnName("status");
+                entity.Property(e => e.Amount).HasColumnName("amount").HasPrecision(12, 2);
+                entity.Property(e => e.WalletTransactionId).HasColumnName("wallet_transaction_id");
+                entity.Property(e => e.RefundWalletTransactionId).HasColumnName("refund_wallet_transaction_id");
+                entity.Property(e => e.PaymentMethodId).HasColumnName("payment_method_id");
+                entity.Property(e => e.CardLastFour).HasColumnName("card_last_four");
+                entity.Property(e => e.CardNetwork).HasColumnName("card_network");
+                entity.Property(e => e.Provider).HasColumnName("provider");
+                entity.Property(e => e.ProviderRef).HasColumnName("provider_ref");
+                entity.Property(e => e.VerifiedById).HasColumnName("verified_by_id");
+                entity.Property(e => e.VerifiedByName).HasColumnName("verified_by_name");
+                entity.Property(e => e.VerifiedAt).HasColumnName("verified_at");
+                entity.Property(e => e.RejectedReason).HasColumnName("rejected_reason");
+                entity.Property(e => e.RefundedAt).HasColumnName("refunded_at");
+                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+                entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            });
+            modelBuilder.Entity<StoreOrderEvent>(entity =>
+            {
+                entity.ToTable("store_order_events");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.OrderId).HasColumnName("order_id");
+                entity.Property(e => e.EventType).HasColumnName("event_type");
+                entity.Property(e => e.Phase).HasColumnName("phase");
+                entity.Property(e => e.Message).HasColumnName("message");
+                entity.Property(e => e.ActorId).HasColumnName("actor_id");
+                entity.Property(e => e.ActorRole).HasColumnName("actor_role");
+                entity.Property(e => e.ActorName).HasColumnName("actor_name");
+                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            });
+            modelBuilder.Entity<StoreNotification>(entity =>
+            {
+                entity.ToTable("store_notifications");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.UserId).HasColumnName("user_id");
+                entity.Property(e => e.NotificationType).HasColumnName("notification_type");
+                entity.Property(e => e.Title).HasColumnName("title");
+                entity.Property(e => e.Body).HasColumnName("body");
+                entity.Property(e => e.ReferenceType).HasColumnName("reference_type");
+                entity.Property(e => e.ReferenceId).HasColumnName("reference_id");
+                entity.Property(e => e.ReadAt).HasColumnName("read_at");
+                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            });
+            modelBuilder.Entity<StoreSetting>(entity =>
+            {
+                entity.ToTable("store_settings");
+                entity.HasKey(e => e.SettingKey);
+                entity.Property(e => e.SettingKey).HasColumnName("setting_key");
+                entity.Property(e => e.SettingValue).HasColumnName("setting_value");
+                entity.Property(e => e.Description).HasColumnName("description");
+                entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
             });
         }
     }

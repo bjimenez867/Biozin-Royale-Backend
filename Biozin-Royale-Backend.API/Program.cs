@@ -41,6 +41,7 @@ builder.Services.AddScoped<IRetirosLN, RetirosLN>();
 builder.Services.AddScoped<ITicketsLN, TicketsLN>();
 builder.Services.AddScoped<IAvatarLN, AvatarLN>();
 builder.Services.AddScoped<IInternalRequestsLN, InternalRequestsLN>();
+builder.Services.AddScoped<IStoreLN, StoreLN>();
 
 builder.Services.AddRateLimiter(options =>
 {

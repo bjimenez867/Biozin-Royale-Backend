@@ -21,8 +21,19 @@ public interface IUnitWork : IDisposable
     IRepositoryAD<Avatar> Avatars { get; }
     IRepositoryAD<InternalRequest> InternalRequests { get; }
     IRepositoryAD<InternalRequestMessage> InternalRequestMessages { get; }
+    IRepositoryAD<StoreCategory> StoreCategories { get; }
+    IRepositoryAD<StoreProduct> StoreProducts { get; }
+    IRepositoryAD<StoreProductVariant> StoreProductVariants { get; }
+    IRepositoryAD<StoreOrder> StoreOrders { get; }
+    IRepositoryAD<StoreOrderItem> StoreOrderItems { get; }
+    IRepositoryAD<StorePayment> StorePayments { get; }
+    IRepositoryAD<StoreOrderEvent> StoreOrderEvents { get; }
+    IRepositoryAD<StoreNotification> StoreNotifications { get; }
+    IRepositoryAD<StoreSetting> StoreSettings { get; }
     int Completar();
     Task<int> CompletarAsync();
+    Task<int> EjecutarSqlAsync(FormattableString sql);
+    Task<IDbTransaccion> IniciarTransaccionAsync();
     Task InsertarUsuarioAuthAsync(Guid id, string email);
     Task<bool> ExisteUsuarioAuthAsync(string email);
 }

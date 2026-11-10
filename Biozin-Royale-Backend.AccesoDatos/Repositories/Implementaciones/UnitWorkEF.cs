@@ -26,6 +26,15 @@ public class UnitWorkEF : IUnitWork
     public IRepositoryAD<Avatar> Avatars { get; }
     public IRepositoryAD<InternalRequest> InternalRequests { get; }
     public IRepositoryAD<InternalRequestMessage> InternalRequestMessages { get; }
+    public IRepositoryAD<StoreCategory> StoreCategories { get; }
+    public IRepositoryAD<StoreProduct> StoreProducts { get; }
+    public IRepositoryAD<StoreProductVariant> StoreProductVariants { get; }
+    public IRepositoryAD<StoreOrder> StoreOrders { get; }
+    public IRepositoryAD<StoreOrderItem> StoreOrderItems { get; }
+    public IRepositoryAD<StorePayment> StorePayments { get; }
+    public IRepositoryAD<StoreOrderEvent> StoreOrderEvents { get; }
+    public IRepositoryAD<StoreNotification> StoreNotifications { get; }
+    public IRepositoryAD<StoreSetting> StoreSettings { get; }
 
     public UnitWorkEF(ApplicationDbContext contexto)
     {
@@ -47,6 +56,32 @@ public class UnitWorkEF : IUnitWork
         Avatars = new RepositoryAD<Avatar>(contexto);
         InternalRequests = new RepositoryAD<InternalRequest>(contexto);
         InternalRequestMessages = new RepositoryAD<InternalRequestMessage>(contexto);
+        StoreCategories = new RepositoryAD<StoreCategory>(contexto);
+        StoreProducts = new RepositoryAD<StoreProduct>(contexto);
+        StoreProductVariants = new RepositoryAD<StoreProductVariant>(contexto);
+        StoreOrders = new RepositoryAD<StoreOrder>(contexto);
+        StoreOrderItems = new RepositoryAD<StoreOrderItem>(contexto);
+        StorePayments = new RepositoryAD<StorePayment>(contexto);
+        StoreOrderEvents = new RepositoryAD<StoreOrderEvent>(contexto);
+        StoreNotifications = new RepositoryAD<StoreNotification>(contexto);
+        StoreSettings = new RepositoryAD<StoreSetting>(contexto);
+    }
+
+    /// SQL parametrizado. Se usa en la tienda para actualizaciones con condición
+    /// (stock >= n, balance >= n) que deben ser atómicas.
+    public async Task<int> EjecutarSqlAsync(FormattableString sql)
+        => await _contexto.Database.ExecuteSqlInterpolatedAsync(sql);
+
+    public async Task<IDbTransaccion> IniciarTransaccionAsync()
+        => new DbTransaccionEF(await _contexto.Database.BeginTransactionAsync());
+
+    private sealed class DbTransaccionEF : IDbTransaccion
+    {
+        private readonly Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction _tx;
+        public DbTransaccionEF(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction tx) => _tx = tx;
+        public Task CommitAsync()   => _tx.CommitAsync();
+        public Task RollbackAsync() => _tx.RollbackAsync();
+        public ValueTask DisposeAsync() => _tx.DisposeAsync();
     }
 
     public int Completar()
