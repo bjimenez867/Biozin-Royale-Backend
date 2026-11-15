@@ -261,7 +261,6 @@ INSERT INTO public.store_settings (setting_key, setting_value, description) VALU
   ('free_shipping_from',  '60',    'Envío gratis desde este subtotal (USD)'),
   ('shipping_cost',       '5',     'Costo del envío a domicilio cuando no es gratis (USD)'),
   ('return_window_days',  '15',    'Días para pedir cambio o devolución'),
-  ('payment_hold_hours',  '24',    'Horas que un pedido con pago pendiente espera antes de cancelarse'),
   ('code_max_attempts',   '5',     'Intentos de código de entrega antes de bloquear'),
   ('card_auto_confirm',   'false', 'true = el pago con tarjeta se confirma solo (solo pruebas); false = lo confirma el admin')
 ON CONFLICT (setting_key) DO NOTHING;
