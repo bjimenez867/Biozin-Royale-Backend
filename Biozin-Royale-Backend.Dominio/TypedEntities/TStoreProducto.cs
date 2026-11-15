@@ -31,7 +31,6 @@ public class TStoreConfig
 {
     public decimal FreeShippingFrom     { get; set; }
     public decimal ShippingCost         { get; set; }
-    public string  DispatchCutoff       { get; set; } = string.Empty;
     public int     ReturnWindowDays     { get; set; }
     public int     MaxDeliveryAttempts  { get; set; }
 }

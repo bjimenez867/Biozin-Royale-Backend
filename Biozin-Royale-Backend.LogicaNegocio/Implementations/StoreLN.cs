@@ -65,7 +65,6 @@ public class StoreLN : IStoreLN
             {
                 FreeShippingFrom = Dec(a, "free_shipping_from", 60),
                 ShippingCost = Dec(a, "shipping_cost", 5),
-                DispatchCutoff = a.TryGetValue("dispatch_cutoff", out var c) ? c : "14:00",
                 ReturnWindowDays = Int(a, "return_window_days", 15),
                 MaxDeliveryAttempts = Int(a, "max_delivery_attempts", 3),
             },

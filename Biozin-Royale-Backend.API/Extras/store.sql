@@ -260,7 +260,6 @@ CREATE TABLE IF NOT EXISTS public.store_settings (
 INSERT INTO public.store_settings (setting_key, setting_value, description) VALUES
   ('free_shipping_from',  '60',    'Envío gratis desde este subtotal (USD)'),
   ('shipping_cost',       '5',     'Costo del envío a domicilio cuando no es gratis (USD)'),
-  ('dispatch_cutoff',     '14:00', 'Hora de corte de despacho (hora de Costa Rica)'),
   ('return_window_days',  '15',    'Días para pedir cambio o devolución'),
   ('payment_hold_hours',  '24',    'Horas que un pedido con pago pendiente espera antes de cancelarse'),
   ('code_max_attempts',   '5',     'Intentos de código de entrega antes de bloquear'),
