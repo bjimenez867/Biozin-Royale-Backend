@@ -35,6 +35,7 @@ public class UnitWorkEF : IUnitWork
     public IRepositoryAD<StoreOrderEvent> StoreOrderEvents { get; }
     public IRepositoryAD<StoreNotification> StoreNotifications { get; }
     public IRepositoryAD<StoreSetting> StoreSettings { get; }
+    public IRepositoryAD<StoreReturnRequest> StoreReturnRequests { get; }
 
     public UnitWorkEF(ApplicationDbContext contexto)
     {
@@ -65,6 +66,7 @@ public class UnitWorkEF : IUnitWork
         StoreOrderEvents = new RepositoryAD<StoreOrderEvent>(contexto);
         StoreNotifications = new RepositoryAD<StoreNotification>(contexto);
         StoreSettings = new RepositoryAD<StoreSetting>(contexto);
+        StoreReturnRequests = new RepositoryAD<StoreReturnRequest>(contexto);
     }
 
     /// SQL parametrizado. Se usa en la tienda para actualizaciones con condición

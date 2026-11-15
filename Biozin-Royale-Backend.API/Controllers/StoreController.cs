@@ -83,11 +83,11 @@ public class StoreController : ControllerBase
         return await Responder(await _store.CalificarAsync(ActorId, id, datos.Stars));
     }
 
-    [HttpPost("pedidos/{id:guid}/cambio")]
-    public async Task<IActionResult> SolicitarCambio(Guid id)
+    [HttpPost("pedidos/{id:guid}/solicitudes")]
+    public async Task<IActionResult> CrearSolicitud(Guid id, [FromBody] TStoreCrearSolicitud datos)
     {
         if (EsStaff) return Forbid();
-        return await Responder(await _store.SolicitarCambioAsync(ActorId, id));
+        return await Responder(await _store.CrearSolicitudAsync(ActorId, id, datos));
     }
 
     // ── Cliente o admin ───────────────────────────────────────────────────
@@ -175,6 +175,16 @@ public class StoreController : ControllerBase
     [HttpPost("admin/pedidos/{id:guid}/entregar")]
     public async Task<IActionResult> Entregar(Guid id, [FromBody] TStoreCodigo datos) =>
         await Responder(await _store.ConfirmarEntregaAsync(ActorId, id, datos.Code));
+
+    [Authorize(Roles = "admin")]
+    [HttpPost("admin/solicitudes/{id:guid}/aprobar")]
+    public async Task<IActionResult> AprobarSolicitud(Guid id, [FromBody] TStoreResolverSolicitud? datos) =>
+        await Responder(await _store.AprobarSolicitudAsync(ActorId, id, datos?.Note));
+
+    [Authorize(Roles = "admin")]
+    [HttpPost("admin/solicitudes/{id:guid}/rechazar")]
+    public async Task<IActionResult> RechazarSolicitud(Guid id, [FromBody] TStoreResolverSolicitud? datos) =>
+        await Responder(await _store.RechazarSolicitudAsync(ActorId, id, datos?.Note));
 
     // ── Admin: productos ──────────────────────────────────────────────────
 

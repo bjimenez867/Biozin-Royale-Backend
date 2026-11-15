@@ -2,6 +2,7 @@ namespace Biozin_Royale_Backend.Dominio.TypedEntities;
 
 public class TStoreItemPedido
 {
+    public Guid    Id          { get; set; }
     public Guid    ProductId   { get; set; }
     public string  Name        { get; set; } = string.Empty;
     public string? Size        { get; set; }
@@ -18,6 +19,27 @@ public class TStoreEvento
     public string   ActorName { get; set; } = string.Empty;
     public string   ActorRole { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+}
+
+/// Cambio de talla o devolución de un artículo del pedido.
+public class TStoreSolicitud
+{
+    public Guid      Id             { get; set; }
+    public Guid      OrderItemId    { get; set; }
+    public string    ProductName    { get; set; } = string.Empty;
+    public string?   Size           { get; set; }
+    public int       Quantity       { get; set; }
+    /// "exchange" | "refund"
+    public string    RequestType    { get; set; } = string.Empty;
+    public string    Reason         { get; set; } = string.Empty;
+    public string    Detail         { get; set; } = string.Empty;
+    public string?   ExchangeSize   { get; set; }
+    /// "pending" | "approved" | "rejected"
+    public string    Status         { get; set; } = string.Empty;
+    public string?   ResolutionNote { get; set; }
+    public string?   ResolvedByName { get; set; }
+    public DateTime? ResolvedAt     { get; set; }
+    public DateTime  CreatedAt      { get; set; }
 }
 
 public class TStorePedido
@@ -48,13 +70,15 @@ public class TStorePedido
     /// Solo se envía al dueño del pedido; el admin nunca lo recibe.
     public string?   DeliveryCode     { get; set; }
     public bool      HasOpenIncident  { get; set; }
+    public int       IncidentCount    { get; set; }
     public string?   RescheduleWindow { get; set; }
     public DateTime? EtaFrom          { get; set; }
     public DateTime? EtaTo            { get; set; }
     public int?      Rating           { get; set; }
     public DateTime  CreatedAt        { get; set; }
-    public List<TStoreItemPedido> Items  { get; set; } = [];
-    public List<TStoreEvento>     Events { get; set; } = [];
+    public List<TStoreItemPedido> Items   { get; set; } = [];
+    public List<TStoreEvento>     Events  { get; set; } = [];
+    public List<TStoreSolicitud>  Returns { get; set; } = [];
 }
 
 public class TStoreNotificacion

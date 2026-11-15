@@ -36,6 +36,20 @@ public class TStoreDireccion
     public string  AddressLine { get; set; } = string.Empty;
 }
 
+public class TStoreCrearSolicitud
+{
+    public Guid    OrderItemId  { get; set; }
+    /// "exchange" | "refund"
+    public string  RequestType  { get; set; } = string.Empty;
+    public string  Reason       { get; set; } = string.Empty;
+    public string? Detail       { get; set; }
+    public int     Quantity     { get; set; }
+    /// Obligatorio con "exchange": la talla que pide a cambio.
+    public string? ExchangeSize { get; set; }
+}
+
+public class TStoreResolverSolicitud { public string? Note { get; set; } }
+
 public class TStoreGuardarProducto
 {
     public string  Name        { get; set; } = string.Empty;

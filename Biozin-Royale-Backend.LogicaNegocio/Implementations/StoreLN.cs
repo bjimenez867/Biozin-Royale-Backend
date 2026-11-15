@@ -67,6 +67,7 @@ public class StoreLN : IStoreLN
                 ShippingCost = Dec(a, "shipping_cost", 5),
                 DispatchCutoff = a.TryGetValue("dispatch_cutoff", out var c) ? c : "14:00",
                 ReturnWindowDays = Int(a, "return_window_days", 15),
+                MaxDeliveryAttempts = Int(a, "max_delivery_attempts", 3),
             },
         };
     }
@@ -343,7 +344,7 @@ public class StoreLN : IStoreLN
         });
     }
 
-    public async Task<Response<TStorePedido>> SolicitarCambioAsync(Guid userId, Guid orderId)
+    public async Task<Response<TStorePedido>> CrearSolicitudAsync(Guid userId, Guid orderId, TStoreCrearSolicitud req)
     {
         var r = new Response<TStorePedido>();
         var o = await PedidoAccesibleAsync(userId, false, orderId);
@@ -355,13 +356,139 @@ public class StoreLN : IStoreLN
         var ventanaDias = Int(await CargarAjustesAsync(), "return_window_days", 15);
         if (entrega is not null && DateTime.UtcNow > entrega.Value.AddDays(ventanaDias))
         { r.lpError("Cambio", $"El plazo para pedir un cambio es de {ventanaDias} días."); return r; }
-        if (eventos.Any(e => e.EventType == "change" && e.Message.StartsWith("Solicitó un cambio")))
-        { r.lpError("Cambio", "Ya solicitaste un cambio para este pedido."); return r; }
+
+        var tipo = (req.RequestType ?? "").Trim().ToLowerInvariant();
+        if (tipo is not ("exchange" or "refund")) { r.lpError("Solicitud", "Elige si quieres un cambio de talla o una devolución."); return r; }
+        var motivo = Trunc((req.Reason ?? "").Trim(), 40);
+        if (motivo.Length < 3) { r.lpError("Solicitud", "Elige el motivo."); return r; }
+        var detalle = Trunc((req.Detail ?? "").Trim(), 300);
+
+        var item = await _uow.StoreOrderItems.ObtenerEntidadAsync(i => i.Id == req.OrderItemId && i.OrderId == orderId);
+        if (item is null) { r.lpError("Solicitud", "Ese artículo no pertenece a este pedido."); return r; }
+        if (req.Quantity < 1 || req.Quantity > item.Quantity) { r.lpError("Solicitud", "Cantidad inválida."); return r; }
+
+        string? tallaNueva = null;
+        if (tipo == "exchange")
+        {
+            if (item.Size is null) { r.lpError("Solicitud", "Este artículo no tiene talla para cambiar."); return r; }
+            tallaNueva = (req.ExchangeSize ?? "").Trim().ToUpperInvariant();
+            if (tallaNueva.Length == 0) { r.lpError("Solicitud", "Elige la talla que quieres a cambio."); return r; }
+            if (tallaNueva == item.Size) { r.lpError("Solicitud", "Elige una talla distinta a la que compraste."); return r; }
+        }
+
+        var activa = await _uow.StoreReturnRequests.ObtenerEntidadAsync(
+            s => s.OrderItemId == item.Id && (s.Status == "pending" || s.Status == "approved"));
+        if (activa is not null) { r.lpError("Solicitud", "Ya hay una solicitud activa para este artículo."); return r; }
 
         var actor = await ActorAsync(userId, false);
-        Evento(orderId, "change", null, "Solicitó un cambio o devolución", actor);
-        await _uow.CompletarAsync();
-        return await DtoAsync(orderId, userId);
+        return await EnTransaccionAsync(async () =>
+        {
+            _uow.StoreReturnRequests.Insertar(new StoreReturnRequest
+            {
+                Id = Guid.NewGuid(), OrderId = orderId, OrderItemId = item.Id, RequestType = tipo, Reason = motivo,
+                Detail = detalle, Quantity = req.Quantity, ExchangeSize = tallaNueva, Status = "pending",
+                CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+            });
+            var talla = item.Size is null ? "" : $" ({item.Size})";
+            var resumen = tipo == "exchange"
+                ? $"Pidió cambio de talla · {req.Quantity}× {item.ProductName} · {item.Size} → {tallaNueva} · {motivo}"
+                : $"Pidió devolución · {req.Quantity}× {item.ProductName}{talla} · {motivo}";
+            Evento(orderId, "change", null, resumen, actor);
+            await _uow.CompletarAsync();
+            return await DtoAsync(orderId, userId);
+        });
+    }
+
+    public async Task<Response<TStorePedido>> AprobarSolicitudAsync(Guid adminId, Guid solicitudId, string? nota)
+    {
+        var r = new Response<TStorePedido>();
+        var s = await _uow.StoreReturnRequests.ObtenerEntidadAsync(x => x.Id == solicitudId);
+        if (s is null) { r.lpError("Solicitud", "Solicitud no encontrada."); return r; }
+        var o = await _uow.StoreOrders.ObtenerEntidadAsync(x => x.Id == s.OrderId);
+        if (o is null) return NoEncontrado<TStorePedido>();
+        var item = await _uow.StoreOrderItems.ObtenerEntidadAsync(x => x.Id == s.OrderItemId);
+        if (item is null) { r.lpError("Solicitud", "El artículo de esta solicitud ya no existe."); return r; }
+        var actor = await ActorAsync(adminId, true);
+        var notaTexto = NullSiVacio(nota, 300);
+
+        return await EnTransaccionAsync(async () =>
+        {
+            var filas = await _uow.EjecutarSqlAsync(
+                $@"UPDATE store_return_requests SET status = 'approved', resolution_note = {notaTexto},
+                       resolved_by_id = {adminId}, resolved_by_name = {actor.Name}, resolved_at = now(), updated_at = now()
+                   WHERE id = {solicitudId} AND status = 'pending'");
+            if (filas == 0) { r.lpError("Solicitud", "Esta solicitud ya fue resuelta."); return r; }
+
+            // El artículo vuelve al inventario: va a reponerse (cambio) o ya no va a salir de nuevo (devolución).
+            await _uow.EjecutarSqlAsync($"UPDATE store_product_variants SET stock = stock + {s.Quantity}, updated_at = now() WHERE id = {item.VariantId}");
+
+            string detalle, avisoTitulo, avisoCuerpo;
+            if (s.RequestType == "exchange")
+            {
+                detalle = $"Cambio de talla aprobado · {item.ProductName} · {item.Size} → {s.ExchangeSize}" + (notaTexto is null ? "" : $" · {notaTexto}");
+                avisoTitulo = "Cambio aprobado";
+                avisoCuerpo = $"Vamos a coordinar el envío de tu {item.ProductName} talla {s.ExchangeSize}.";
+            }
+            else
+            {
+                var monto = item.UnitPrice * s.Quantity;
+                var pago = (await _uow.StorePayments.ObtenerEntidadesAsync(p => p.OrderId == o.Id)).OrderByDescending(p => p.CreatedAt).FirstOrDefault();
+                if (pago?.Method == "wallet")
+                {
+                    var wallet = await _uow.Wallets.ObtenerEntidadAsync(w => w.UserId == o.UserId);
+                    if (wallet is null) { r.lpError("Billetera", "No se encontró la billetera del cliente."); return r; }
+                    await _uow.EjecutarSqlAsync($"UPDATE wallets SET balance = balance + {monto}, updated_at = now() WHERE id = {wallet.Id}");
+                    var despues = (await _uow.Wallets.ObtenerEntidadAsync(w => w.Id == wallet.Id))!.Balance;
+                    var wtx = new WalletTransaction
+                    {
+                        Id = Guid.NewGuid(), WalletId = wallet.Id, TransactionType = "purchase_refund", Status = "completed",
+                        Amount = monto, BalanceBefore = despues - monto, BalanceAfter = despues,
+                        ReferenceType = "store_order", ReferenceId = o.Id, ReceiptNumber = ReceiptGenerator.Generate(), CreatedAt = DateTime.UtcNow,
+                    };
+                    _uow.WalletTransactions.Insertar(wtx);
+                    await _uow.CompletarAsync();
+                    await _uow.EjecutarSqlAsync($"UPDATE store_return_requests SET refund_wallet_transaction_id = {wtx.Id} WHERE id = {solicitudId}");
+                    detalle = $"Devolución aprobada · {Dinero(monto)} reembolsados a la billetera" + (notaTexto is null ? "" : $" · {notaTexto}");
+                    avisoTitulo = "Devolución aprobada";
+                    avisoCuerpo = $"Te devolvimos {Dinero(monto)} a tu billetera.";
+                }
+                else
+                {
+                    detalle = $"Devolución aprobada · {Dinero(monto)} · reembolso en proceso" + (notaTexto is null ? "" : $" · {notaTexto}");
+                    avisoTitulo = "Devolución aprobada";
+                    avisoCuerpo = $"Te devolveremos {Dinero(monto)}.";
+                }
+            }
+
+            Evento(o.Id, "change", null, detalle, actor);
+            Aviso(o.UserId, avisoTitulo, avisoCuerpo, o.Id);
+            await _uow.CompletarAsync();
+            return await DtoAsync(o.Id, null);
+        });
+    }
+
+    public async Task<Response<TStorePedido>> RechazarSolicitudAsync(Guid adminId, Guid solicitudId, string? nota)
+    {
+        var r = new Response<TStorePedido>();
+        var s = await _uow.StoreReturnRequests.ObtenerEntidadAsync(x => x.Id == solicitudId);
+        if (s is null) { r.lpError("Solicitud", "Solicitud no encontrada."); return r; }
+        var o = await _uow.StoreOrders.ObtenerEntidadAsync(x => x.Id == s.OrderId);
+        if (o is null) return NoEncontrado<TStorePedido>();
+        var actor = await ActorAsync(adminId, true);
+        var notaTexto = NullSiVacio(nota, 300) ?? "No cumple con la política de cambios y devoluciones";
+
+        return await EnTransaccionAsync(async () =>
+        {
+            var filas = await _uow.EjecutarSqlAsync(
+                $@"UPDATE store_return_requests SET status = 'rejected', resolution_note = {notaTexto},
+                       resolved_by_id = {adminId}, resolved_by_name = {actor.Name}, resolved_at = now(), updated_at = now()
+                   WHERE id = {solicitudId} AND status = 'pending'");
+            if (filas == 0) { r.lpError("Solicitud", "Esta solicitud ya fue resuelta."); return r; }
+            Evento(o.Id, "change", null, $"Solicitud rechazada · {notaTexto}", actor);
+            Aviso(o.UserId, "Solicitud rechazada", notaTexto, o.Id);
+            await _uow.CompletarAsync();
+            return await DtoAsync(o.Id, null);
+        });
     }
 
     // ═══════════════════════════ Cliente o admin ═══════════════════════════
@@ -391,10 +518,12 @@ public class StoreLN : IStoreLN
 
         return await EnTransaccionAsync(async () =>
         {
+            // Con incidencia abierta se puede reprogramar en cualquier momento; sin incidencia, solo mientras
+            // va en reparto (antes de eso no hay una ventana de entrega concreta que cambiar).
             var filas = await _uow.EjecutarSqlAsync(
                 $@"UPDATE store_orders SET has_open_incident = false, reschedule_window = {v}, updated_at = now()
-                   WHERE id = {orderId} AND has_open_incident = true AND is_cancelled = false");
-            if (filas == 0) { r.lpError("Pedido", "Este pedido no tiene una entrega por reprogramar."); return r; }
+                   WHERE id = {orderId} AND is_cancelled = false AND (has_open_incident = true OR fulfillment_phase = 5)");
+            if (filas == 0) { r.lpError("Pedido", "Este pedido no está en reparto todavía."); return r; }
             Evento(orderId, "reschedule", null, $"Entrega reprogramada · {v}", actor);
             if (esAdmin) Aviso(o.UserId, "Entrega reprogramada", v, orderId);
             await _uow.CompletarAsync();
@@ -486,16 +615,19 @@ public class StoreLN : IStoreLN
         if (m.Length < 3 || m.Length > 200) { r.lpError("Incidencia", "Describe el motivo del intento fallido."); return r; }
         var o = await _uow.StoreOrders.ObtenerEntidadAsync(x => x.Id == orderId);
         if (o is null) return NoEncontrado<TStorePedido>();
+        var max = Int(await CargarAjustesAsync(), "max_delivery_attempts", 3);
+        if (o.IncidentCount >= max)
+        { r.lpError("Pedido", $"Ya se registraron {max} intentos fallidos. Cancela el pedido o contacta al cliente directamente."); return r; }
         var actor = await ActorAsync(adminId, true);
 
         return await EnTransaccionAsync(async () =>
         {
             var filas = await _uow.EjecutarSqlAsync(
-                $@"UPDATE store_orders SET has_open_incident = true, updated_at = now()
-                   WHERE id = {orderId} AND fulfillment_phase = 5 AND is_cancelled = false AND has_open_incident = false");
+                $@"UPDATE store_orders SET has_open_incident = true, incident_count = incident_count + 1, updated_at = now()
+                   WHERE id = {orderId} AND fulfillment_phase = 5 AND is_cancelled = false AND has_open_incident = false AND incident_count < {max}");
             if (filas == 0) { r.lpError("Pedido", "Solo se puede registrar una incidencia en un pedido en reparto."); return r; }
             Evento(orderId, "incident", null, $"Intento fallido · {m}", actor);
-            Aviso(o.UserId, "No pudimos entregar", "Elige una nueva fecha de entrega.", orderId);
+            Aviso(o.UserId, "No pudimos entregar", $"{m}. Elige una nueva fecha de entrega.", orderId);
             await _uow.CompletarAsync();
             return await DtoAsync(orderId, null);
         });
@@ -805,8 +937,10 @@ public class StoreLN : IStoreLN
         var items = await _uow.StoreOrderItems.ObtenerEntidadesAsync(i => ids.Contains(i.OrderId));
         var pagos = await _uow.StorePayments.ObtenerEntidadesAsync(p => ids.Contains(p.OrderId));
         var eventos = await _uow.StoreOrderEvents.ObtenerEntidadesAsync(e => ids.Contains(e.OrderId));
+        var devoluciones = await _uow.StoreReturnRequests.ObtenerEntidadesAsync(s => ids.Contains(s.OrderId));
         var perfiles = (await _uow.Profiles.ObtenerEntidadesAsync(p => userIds.Contains(p.UserId)))
             .ToDictionary(p => p.UserId, p => p);
+        var itemsPorId = items.ToDictionary(i => i.Id);
 
         return ordenes.Select(o =>
         {
@@ -824,12 +958,22 @@ public class StoreLN : IStoreLN
                 FulfillmentPhase = o.FulfillmentPhase, IsCancelled = o.IsCancelled, CancelReason = o.CancelReason,
                 CarrierName = o.CarrierName, TrackingNumber = o.TrackingNumber, PackageInfo = o.PackageInfo,
                 DeliveryCode = esDueno && !o.IsCancelled && o.FulfillmentPhase >= 5 ? o.DeliveryCode : null,
-                HasOpenIncident = o.HasOpenIncident, RescheduleWindow = o.RescheduleWindow,
+                HasOpenIncident = o.HasOpenIncident, IncidentCount = o.IncidentCount, RescheduleWindow = o.RescheduleWindow,
                 EtaFrom = o.EtaFrom, EtaTo = o.EtaTo, Rating = o.Rating, CreatedAt = o.CreatedAt,
                 Items = items.Where(i => i.OrderId == o.Id).OrderBy(i => i.CreatedAt).ThenBy(i => i.ProductName)
-                    .Select(i => new TStoreItemPedido { ProductId = i.ProductId, Name = i.ProductName, Size = i.Size, Quantity = i.Quantity, UnitPrice = i.UnitPrice }).ToList(),
+                    .Select(i => new TStoreItemPedido { Id = i.Id, ProductId = i.ProductId, Name = i.ProductName, Size = i.Size, Quantity = i.Quantity, UnitPrice = i.UnitPrice }).ToList(),
                 Events = eventos.Where(e => e.OrderId == o.Id).OrderBy(e => e.CreatedAt)
                     .Select(e => new TStoreEvento { Id = e.Id, Type = e.EventType, Phase = e.Phase, Message = e.Message, ActorName = e.ActorName, ActorRole = e.ActorRole, CreatedAt = e.CreatedAt }).ToList(),
+                Returns = devoluciones.Where(s => s.OrderId == o.Id).OrderBy(s => s.CreatedAt)
+                    .Select(s => new TStoreSolicitud
+                    {
+                        Id = s.Id, OrderItemId = s.OrderItemId,
+                        ProductName = itemsPorId.TryGetValue(s.OrderItemId, out var it) ? it.ProductName : "",
+                        Size = itemsPorId.TryGetValue(s.OrderItemId, out var it2) ? it2.Size : null,
+                        Quantity = s.Quantity, RequestType = s.RequestType, Reason = s.Reason, Detail = s.Detail,
+                        ExchangeSize = s.ExchangeSize, Status = s.Status, ResolutionNote = s.ResolutionNote,
+                        ResolvedByName = s.ResolvedByName, ResolvedAt = s.ResolvedAt, CreatedAt = s.CreatedAt,
+                    }).ToList(),
             };
         }).ToList();
     }

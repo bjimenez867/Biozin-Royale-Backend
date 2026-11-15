@@ -15,7 +15,7 @@ public interface IStoreLN
     Task<Response<TStorePedido>> ObtenerPedidoAsync(Guid actorId, bool esAdmin, Guid orderId);
     Task<Response<TStorePedido>> CambiarDireccionAsync(Guid userId, Guid orderId, TStoreDireccion datos);
     Task<Response<TStorePedido>> CalificarAsync(Guid userId, Guid orderId, int estrellas);
-    Task<Response<TStorePedido>> SolicitarCambioAsync(Guid userId, Guid orderId);
+    Task<Response<TStorePedido>> CrearSolicitudAsync(Guid userId, Guid orderId, TStoreCrearSolicitud req);
 
     // Cliente o admin
     Task<Response<TStorePedido>> CancelarAsync(Guid actorId, bool esAdmin, Guid orderId, string? motivo);
@@ -31,6 +31,8 @@ public interface IStoreLN
     Task<Response<TStorePedido>> IniciarRepartoAsync(Guid adminId, Guid orderId);
     Task<Response<TStorePedido>> RegistrarIncidenciaAsync(Guid adminId, Guid orderId, string motivo);
     Task<Response<TStorePedido>> ConfirmarEntregaAsync(Guid adminId, Guid orderId, string codigo);
+    Task<Response<TStorePedido>> AprobarSolicitudAsync(Guid adminId, Guid solicitudId, string? nota);
+    Task<Response<TStorePedido>> RechazarSolicitudAsync(Guid adminId, Guid solicitudId, string? nota);
 
     Task<Response<TStoreProducto>> CrearProductoAsync(TStoreGuardarProducto datos);
     Task<Response<TStoreProducto>> ActualizarProductoAsync(Guid id, TStoreGuardarProducto datos);

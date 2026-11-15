@@ -34,6 +34,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
         public DbSet<StoreOrderEvent> StoreOrderEvents => Set<StoreOrderEvent>();
         public DbSet<StoreNotification> StoreNotifications => Set<StoreNotification>();
         public DbSet<StoreSetting> StoreSettings => Set<StoreSetting>();
+        public DbSet<StoreReturnRequest> StoreReturnRequests => Set<StoreReturnRequest>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -405,6 +406,7 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(e => e.CodeAttempts).HasColumnName("code_attempts");
                 entity.Property(e => e.CodeLockedUntil).HasColumnName("code_locked_until");
                 entity.Property(e => e.HasOpenIncident).HasColumnName("has_open_incident");
+                entity.Property(e => e.IncidentCount).HasColumnName("incident_count");
                 entity.Property(e => e.RescheduleWindow).HasColumnName("reschedule_window");
                 entity.Property(e => e.EtaFrom).HasColumnName("eta_from").HasColumnType("date");
                 entity.Property(e => e.EtaTo).HasColumnName("eta_to").HasColumnType("date");
@@ -488,6 +490,27 @@ namespace Biozin_Royale_Backend.AccesoDatos.Contexto
                 entity.Property(e => e.SettingKey).HasColumnName("setting_key");
                 entity.Property(e => e.SettingValue).HasColumnName("setting_value");
                 entity.Property(e => e.Description).HasColumnName("description");
+                entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            });
+            modelBuilder.Entity<StoreReturnRequest>(entity =>
+            {
+                entity.ToTable("store_return_requests");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.OrderId).HasColumnName("order_id");
+                entity.Property(e => e.OrderItemId).HasColumnName("order_item_id");
+                entity.Property(e => e.RequestType).HasColumnName("request_type");
+                entity.Property(e => e.Reason).HasColumnName("reason");
+                entity.Property(e => e.Detail).HasColumnName("detail");
+                entity.Property(e => e.Quantity).HasColumnName("quantity");
+                entity.Property(e => e.ExchangeSize).HasColumnName("exchange_size");
+                entity.Property(e => e.Status).HasColumnName("status");
+                entity.Property(e => e.ResolutionNote).HasColumnName("resolution_note");
+                entity.Property(e => e.RefundWalletTransactionId).HasColumnName("refund_wallet_transaction_id");
+                entity.Property(e => e.ResolvedById).HasColumnName("resolved_by_id");
+                entity.Property(e => e.ResolvedByName).HasColumnName("resolved_by_name");
+                entity.Property(e => e.ResolvedAt).HasColumnName("resolved_at");
+                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
                 entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
             });
         }

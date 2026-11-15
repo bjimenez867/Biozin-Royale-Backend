@@ -28,6 +28,7 @@ public class StoreOrder
     public short     CodeAttempts     { get; set; }
     public DateTime? CodeLockedUntil  { get; set; }
     public bool      HasOpenIncident  { get; set; }
+    public short     IncidentCount    { get; set; }
     public string?   RescheduleWindow { get; set; }
     public DateTime? EtaFrom          { get; set; }
     public DateTime? EtaTo            { get; set; }

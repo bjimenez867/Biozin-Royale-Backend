@@ -30,6 +30,7 @@ public interface IUnitWork : IDisposable
     IRepositoryAD<StoreOrderEvent> StoreOrderEvents { get; }
     IRepositoryAD<StoreNotification> StoreNotifications { get; }
     IRepositoryAD<StoreSetting> StoreSettings { get; }
+    IRepositoryAD<StoreReturnRequest> StoreReturnRequests { get; }
     int Completar();
     Task<int> CompletarAsync();
     Task<int> EjecutarSqlAsync(FormattableString sql);
