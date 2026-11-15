@@ -120,6 +120,14 @@ builder.Services.AddHttpClient("OddsApi", client =>
     client.BaseAddress = new Uri(builder.Configuration["OddsApi:BaseUrl"]!);
     client.Timeout = TimeSpan.FromSeconds(10);
 });
+builder.Services.AddHttpClient("SupabaseStorage", client =>
+{
+    var serviceRoleKey = builder.Configuration["Supabase:ServiceRoleKey"]!;
+    client.BaseAddress = new Uri($"{builder.Configuration["Supabase:Url"]}/storage/v1/object/");
+    client.DefaultRequestHeaders.Add("apikey", serviceRoleKey);
+    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {serviceRoleKey}");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 builder.Services.AddSingleton<ISportsLN, SportsLN>();
 builder.Services.AddHostedService<BetSettlementService>();
 builder.Services.AddHostedService<BonusExpirationService>();

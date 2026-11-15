@@ -38,6 +38,7 @@ public interface IStoreLN
     Task<Response<TStoreProducto>> ActualizarProductoAsync(Guid id, TStoreGuardarProducto datos);
     Task<Response<bool>> EliminarProductoAsync(Guid id);
     Task<Response<TStoreProducto>> AjustarStockAsync(Guid id, TStoreAjusteStock datos);
+    Task<Response<TStoreProducto>> SubirImagenProductoAsync(Guid id, byte[] contenido, string? contentType);
 
     // Avisos del cliente
     Task<Response<List<TStoreNotificacion>>> ListarNotificacionesAsync(Guid userId);

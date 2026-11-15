@@ -220,6 +220,20 @@ public class StoreController : ControllerBase
         return r.blnError ? BadRequest(r) : Ok(r);
     }
 
+    [Authorize(Roles = "admin")]
+    [HttpPost("admin/productos/{id:guid}/imagen")]
+    [RequestSizeLimit(4_000_000)]
+    public async Task<IActionResult> SubirImagenProducto(Guid id, IFormFile? imagen)
+    {
+        if (imagen is null || imagen.Length == 0)
+            return BadRequest(new Response<TStoreProducto> { blnError = true, strResponseTittle = "Imagen", strResponseMessage = "Selecciona una imagen." });
+
+        using var ms = new MemoryStream();
+        await imagen.CopyToAsync(ms);
+        var r = await _store.SubirImagenProductoAsync(id, ms.ToArray(), imagen.ContentType);
+        return r.blnError ? BadRequest(r) : Ok(r);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
 
     /// Tras cada cambio avisa por SignalR (solo ids, nunca el código de entrega) al dueño del pedido

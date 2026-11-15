@@ -16,12 +16,18 @@ namespace Biozin_Royale_Backend.LogicaNegocio.Implementations;
 public class StoreLN : IStoreLN
 {
     private readonly IUnitWork _uow;
+    private readonly IHttpClientFactory _http;
 
     private const string Transportista = "Correos de Costa Rica";
+    private const long TamanoMaximoImagen = 3 * 1024 * 1024;
     private static readonly string[] Provincias = ["San José", "Alajuela", "Cartago", "Heredia", "Guanacaste", "Puntarenas", "Limón"];
     private static readonly TStoreActor Sistema = new(null, "system", "Sistema");
+    private static readonly Dictionary<string, string> ExtensionesImagen = new()
+    {
+        ["image/webp"] = "webp", ["image/jpeg"] = "jpg", ["image/png"] = "png",
+    };
 
-    public StoreLN(IUnitWork uow) => _uow = uow;
+    public StoreLN(IUnitWork uow, IHttpClientFactory http) { _uow = uow; _http = http; }
 
     // ═══════════════════════════ Catálogo ═══════════════════════════
 
@@ -737,6 +743,31 @@ public class StoreLN : IStoreLN
                WHERE v.product_id = p.id AND p.id = {id} AND p.deleted_at IS NULL AND v.is_active
                  AND upper(coalesce(v.size, '')) = {talla ?? ""} AND v.stock + {d.Delta} >= 0");
         if (filas == 0) return Error<TStoreProducto>("Stock", "No se pudo ajustar: revisa la talla y que el stock no quede negativo.");
+        return await ProductoDtoAsync(id);
+    }
+
+    public async Task<Response<TStoreProducto>> SubirImagenProductoAsync(Guid id, byte[] contenido, string? contentType)
+    {
+        var p = await _uow.StoreProducts.ObtenerEntidadAsync(x => x.Id == id && x.DeletedAt == null);
+        if (p is null) return Error<TStoreProducto>("Producto", "Producto no encontrado.");
+        if (contenido.Length == 0) return Error<TStoreProducto>("Imagen", "Selecciona una imagen.");
+        if (contenido.Length > TamanoMaximoImagen) return Error<TStoreProducto>("Imagen", "La imagen no puede superar 3 MB.");
+        if (contentType is null || !ExtensionesImagen.TryGetValue(contentType, out var ext))
+            return Error<TStoreProducto>("Imagen", "Formato no válido. Usa WebP, JPG o PNG.");
+
+        var ruta = $"{id:N}.{ext}";
+        var cliente = _http.CreateClient("SupabaseStorage");
+        using var cuerpo = new ByteArrayContent(contenido);
+        cuerpo.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        using var peticion = new HttpRequestMessage(HttpMethod.Post, $"store-products/{ruta}") { Content = cuerpo };
+        peticion.Headers.Add("x-upsert", "true");
+        var respuesta = await cliente.SendAsync(peticion);
+        if (!respuesta.IsSuccessStatusCode) return Error<TStoreProducto>("Imagen", "No se pudo subir la imagen. Intenta de nuevo.");
+
+        p.ImagePath = ruta;
+        p.UpdatedAt = DateTime.UtcNow;
+        _uow.StoreProducts.Modificar(p);
+        await _uow.CompletarAsync();
         return await ProductoDtoAsync(id);
     }
 
